@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>交通費メモ</title>
+<meta name="theme-color" content="#2f6fed">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="交通費メモ">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+:root{
+  --bg:#f5f6f8;
+  --card-bg:#ffffff;
+  --text:#1c1f26;
+  --text-secondary:#6b7280;
+  --accent:#2f6fed;
+  --accent-contrast:#ffffff;
+  --border:#e2e5ea;
+  --danger:#e0483e;
+  --success:#1f9d55;
+  --shadow:0 1px 3px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#101216;
+    --card-bg:#1b1e24;
+    --text:#f2f3f5;
+    --text-secondary:#9aa1ac;
+    --border:#2a2e37;
+    --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#101216;
+  --card-bg:#1b1e24;
+  --text:#f2f3f5;
+  --text-secondary:#9aa1ac;
+  --border:#2a2e37;
+  --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;}
+[hidden]{display:none !important;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+  -webkit-tap-highlight-color:transparent;
+}
+#app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);}
+header{
+  position:sticky;top:0;z-index:10;
+  background:var(--card-bg);border-bottom:1px solid var(--border);
+  padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+header h1{font-size:17px;margin:0;font-weight:700;}
+.header-actions{display:flex;align-items:center;gap:8px;}
+#btn-settings{background:none;border:1px solid var(--border);color:var(--text-secondary);height:32px;padding:0 12px;border-radius:16px;font-size:13px;}
+#btn-help{background:none;border:1px solid var(--border);color:var(--text-secondary);width:32px;height:32px;border-radius:50%;font-size:15px;}
+main{flex:1;padding:16px;padding-bottom:8px;}
+section[hidden]{display:none;}
+.tabbar{
+  position:sticky;bottom:0;z-index:10;display:flex;
+  background:var(--card-bg);border-top:1px solid var(--border);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.tabbar button{
+  flex:1;background:none;border:none;padding:10px 0 8px;font-size:11px;
+  color:var(--text-secondary);display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.tabbar button .ico{font-size:19px;}
+.tabbar button.active{color:var(--accent);font-weight:700;}
+
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px;}
+.field{margin-bottom:14px;display:flex;flex-direction:column;gap:6px;}
+.field label{font-size:12.5px;color:var(--text-secondary);}
+input[type="text"],input[type="date"],input[type="number"]{
+  font-size:16px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
+  background:var(--bg);color:var(--text);width:100%;min-width:0;max-width:100%;
+}
+/* iOS Safari gives date inputs an intrinsic width that ignores width:100% unless the native appearance is dropped. */
+input[type="date"]{
+  -webkit-appearance:none;appearance:none;display:block;
+  min-height:44px;line-height:1.3;text-align:left;
+}
+input[type="date"]::-webkit-date-and-time-value{text-align:left;}
+.segmented{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.segmented button{flex:1;padding:10px;background:var(--bg);border:none;color:var(--text);font-size:14px;}
+.segmented button.active{background:var(--accent);color:var(--accent-contrast);font-weight:700;}
+.total-display{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:14.5px;color:var(--text-secondary);}
+.total-display strong{color:var(--text);font-size:16px;}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{padding:8px 12px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:13px;color:var(--text);}
+.section-title{font-size:13px;color:var(--text-secondary);margin:0 0 8px;}
+.hint{font-size:12px;color:var(--text-secondary);margin-top:4px;}
+
+.btn-row{display:flex;gap:8px;margin-top:6px;}
+.btn-primary{background:var(--accent);color:var(--accent-contrast);border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;width:100%;}
+.btn-secondary{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:12px;color:var(--text);width:100%;font-size:14.5px;}
+.btn-secondary:disabled{opacity:.45;}
+.btn-confirm-ok{background:var(--accent);color:var(--accent-contrast);border:none;border-radius:12px;padding:12px;font-size:14.5px;font-weight:700;width:100%;}
+.btn-confirm-ok.danger{background:var(--danger);}
+#confirm-message{font-size:15px;color:var(--text);line-height:1.6;margin:4px 0 16px;}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--text-secondary);}
+
+.month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.month-nav button{background:var(--card-bg);border:1px solid var(--border);border-radius:8px;font-size:16px;color:var(--accent);padding:6px 14px;}
+.month-nav .label{font-size:15px;font-weight:700;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:13.5px;color:var(--text-secondary);}
+
+.history-total{background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:12px;font-size:14px;color:var(--text-secondary);}
+.history-total strong{font-size:18px;color:var(--text);}
+.month-group-title{font-size:13px;color:var(--text-secondary);margin:16px 0 8px;padding-left:2px;}
+.month-group-title:first-child{margin-top:0;}
+
+.history-row-wrap{position:relative;overflow:hidden;border-radius:12px;margin-bottom:8px;}
+.history-row{
+  position:relative;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;
+  padding:11px 12px;touch-action:pan-y;transition:transform .18s ease;
+}
+.history-row .row-top{display:flex;justify-content:space-between;align-items:baseline;}
+.history-row .route{font-size:14.5px;font-weight:600;}
+.history-row .amount{font-size:15px;font-weight:700;}
+.history-row .row-bottom{display:flex;justify-content:space-between;margin-top:3px;}
+.history-row .meta{font-size:12px;color:var(--text-secondary);}
+.badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg);color:var(--text-secondary);margin-right:6px;}
+.history-delete-btn{
+  position:absolute;top:0;right:0;bottom:0;width:88px;background:var(--danger);color:#fff;
+  border:none;font-size:13px;font-weight:700;
+}
+.empty-state{text-align:center;color:var(--text-secondary);font-size:13.5px;padding:40px 10px;}
+
+table.export-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.export-table th,table.export-table td{border:1px solid var(--border);padding:6px 6px;text-align:left;}
+table.export-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+table.export-table th,table.export-table .nowrap{white-space:nowrap;}
+table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
+.export-scroll{overflow-x:auto;margin-bottom:14px;}
+.doc-title{font-size:19px;font-weight:700;text-align:center;letter-spacing:.3em;margin:4px 0 16px;color:var(--text);}
+.doc-meta{margin:0 0 16px;display:grid;gap:8px;}
+.doc-meta div{display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--border);padding-bottom:6px;}
+.doc-meta dt{width:5.5em;flex-shrink:0;font-size:12.5px;color:var(--text-secondary);letter-spacing:.05em;}
+.doc-meta dd{margin:0;font-size:14.5px;font-weight:600;color:var(--text);}
+.doc-meta dd.unset{font-weight:400;color:var(--danger);font-size:13px;}
+#exp-doc-total{font-size:17px;font-variant-numeric:tabular-nums;}
+#exp-status,#backup-status{font-size:13px;margin-top:8px;color:var(--text-secondary);}
+#exp-status.ok,#backup-status.ok{color:var(--success);}
+#exp-status.error,#backup-status.error{color:var(--danger);}
+
+#first-run-banner{margin:12px 16px 0;}
+#first-run-banner p{margin:0 0 10px;font-size:13.5px;}
+
+#toast{
+  position:fixed;left:50%;bottom:86px;transform:translateX(-50%);
+  background:rgba(20,20,24,.9);color:#fff;padding:10px 18px;border-radius:20px;font-size:13px;z-index:60;
+  max-width:80%;text-align:center;
+}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:flex-end;justify-content:center;}
+.modal-card{
+  background:var(--card-bg);width:100%;max-width:480px;border-radius:18px 18px 0 0;
+  padding:18px 18px calc(env(safe-area-inset-bottom) + 18px);max-height:82vh;overflow-y:auto;
+}
+.modal-card h2{margin-top:0;font-size:17px;}
+.modal-card h3{font-size:14px;margin:16px 0 6px;}
+.modal-card p,.modal-card li{font-size:13.5px;color:var(--text-secondary);line-height:1.6;}
+.modal-close{width:100%;background:var(--bg);border:none;border-radius:10px;padding:12px;font-size:14.5px;color:var(--text);margin-top:12px;}
+
+@media print{
+  @page{size:A4;margin:15mm;}
+  header,.tabbar,#first-run-banner,#toast,.modal-overlay,.preview-label,#exp-actions,#exp-status,
+  #tab-export > .card:not(#exp-preview){display:none !important;}
+  body,#app{background:#fff !important;min-height:0;}
+  #app{max-width:none;}
+  main{padding:0;}
+  #exp-preview{border:none;box-shadow:none;padding:0;margin:0;background:#fff;}
+  #exp-print-area{--text:#000;--text-secondary:#333;--border:#777;--danger:#000;color:#000;}
+  .export-scroll{overflow:visible;}
+  table.export-table{font-size:10.5pt;}
+  table.export-table th,table.export-table td{padding:5px 6px;}
+  .doc-title{font-size:20pt;margin:0 0 8mm;}
+  .doc-meta{max-width:110mm;margin-bottom:8mm;}
+  .doc-meta dd{font-size:12pt;}
+  #exp-doc-total{font-size:14pt;}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>交通費メモ</h1>
+    <div class="header-actions">
+      <button id="btn-settings">設定</button>
+      <button id="btn-help" aria-label="ヘルプ">?</button>
+    </div>
+  </header>
+
+  <div id="first-run-banner" class="card" hidden>
+    <p>ホーム画面に追加すると、アプリのようにすぐ開けます。</p>
+    <div class="btn-row">
+      <button id="btn-first-run-help" class="btn-secondary">追加方法を見る</button>
+      <button id="btn-first-run-dismiss" class="btn-secondary">閉じる</button>
+    </div>
+  </div>
+
+  <main>
+    <section id="tab-input">
+      <div id="draft-notice" class="hint" hidden>前回の入力内容を復元しました</div>
+
+      <div class="card" id="shortcuts-card" hidden>
+        <p class="section-title">よく使う経路（タップで反映・長押しで削除）</p>
+        <div class="chips" id="shortcuts-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label for="f-date">日付</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label for="f-from">出発地</label>
+          <input type="text" id="f-from" list="fromList" autocomplete="off">
+          <datalist id="fromList"></datalist>
+        </div>
+        <div class="field">
+          <label for="f-to">到着地</label>
+          <input type="text" id="f-to" list="toList" autocomplete="off">
+          <datalist id="toList"></datalist>
+        </div>
+        <div class="field">
+          <label>往復・片道</label>
+          <div class="segmented">
+            <button type="button" data-trip="round" class="active">往復</button>
+            <button type="button" data-trip="one">片道</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-fare">片道料金（円）</label>
+          <input type="number" id="f-fare" inputmode="numeric" pattern="[0-9]*" min="0" step="1">
+        </div>
+        <div class="total-display" id="f-total">合計 ¥0</div>
+        <div class="field" style="margin-top:14px;">
+          <label for="f-purpose">目的・訪問先</label>
+          <input type="text" id="f-purpose" list="purposeList" autocomplete="off">
+          <datalist id="purposeList"></datalist>
+        </div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="f-save-shortcut">
+          この経路をショートカットに保存する
+        </label>
+
+        <div class="btn-row" style="margin-top:14px;">
+          <button id="btn-duplicate-last" class="btn-secondary" hidden>前回と同じ内容で追加</button>
+        </div>
+        <div class="btn-row" style="margin-top:10px;">
+          <button id="btn-cancel-edit" class="btn-secondary" hidden>編集をやめる</button>
+        </div>
+        <div style="margin-top:10px;">
+          <button id="btn-save" class="btn-primary">保存する</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-history" hidden>
+      <div class="toggle-row">
+        <label class="checkbox-row"><input type="checkbox" id="hist-all-toggle"> 全期間を表示</label>
+      </div>
+      <div class="month-nav" id="hist-month-nav">
+        <button id="hist-prev">◀</button>
+        <span class="label" id="hist-month-label"></span>
+        <button id="hist-next">▶</button>
+      </div>
+      <div class="field" style="margin-bottom:10px;">
+        <input type="text" id="hist-search" placeholder="出発地・到着地・目的で検索">
+      </div>
+      <div class="history-total" id="hist-total"></div>
+      <div id="hist-list"></div>
+    </section>
+
+    <section id="tab-export" hidden>
+      <div class="card">
+        <p class="section-title">書き出す期間</p>
+        <div class="field">
+          <label for="exp-start">開始日</label>
+          <input type="date" id="exp-start">
+        </div>
+        <div class="field">
+          <label for="exp-end">終了日</label>
+          <input type="date" id="exp-end">
+        </div>
+        <button id="btn-exp-generate" class="btn-primary">書き出しイメージを作成</button>
+      </div>
+
+      <div class="card" id="exp-preview" hidden>
+        <p class="section-title preview-label">プレビュー</p>
+        <div id="exp-print-area">
+          <h2 class="doc-title">交通費精算書</h2>
+          <dl class="doc-meta">
+            <div><dt>名前</dt><dd id="exp-doc-name"></dd></div>
+            <div><dt>期間</dt><dd id="exp-doc-period"></dd></div>
+            <div><dt>合計金額</dt><dd id="exp-doc-total"></dd></div>
+          </dl>
+          <div class="export-scroll">
+            <table class="export-table">
+              <thead>
+                <tr><th>日付</th><th>経路</th><th>種別</th><th class="num">金額</th><th>目的</th></tr>
+              </thead>
+              <tbody id="exp-table-body"></tbody>
+              <tfoot>
+                <tr><th colspan="3">合計</th><td class="num" id="exp-total">¥0</td><td></td></tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        <div id="exp-actions">
+          <div class="btn-row">
+            <button id="btn-exp-share" class="btn-secondary">共有する</button>
+            <button id="btn-exp-csv" class="btn-secondary">CSVを保存</button>
+          </div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button id="btn-exp-print" class="btn-secondary">PDFで保存</button>
+            <button id="btn-exp-copy" class="btn-secondary">CSVをコピーする</button>
+          </div>
+        </div>
+        <div id="exp-status"></div>
+      </div>
+
+      <div class="card">
+        <p class="section-title">データのバックアップ</p>
+        <p class="hint" style="margin-top:-4px;">機種変更やアプリの再インストールに備え、記録をファイルとして保存できます。</p>
+        <div class="btn-row" style="margin-top:10px;">
+          <button id="btn-backup-export" class="btn-secondary">バックアップを書き出す</button>
+          <button id="btn-backup-import-trigger" class="btn-secondary">バックアップを読み込む</button>
+        </div>
+        <input type="file" id="backup-import-input" accept="application/json" hidden>
+        <div id="backup-status"></div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button data-tab="input" class="active"><span class="ico">✎</span>入力</button>
+    <button data-tab="history"><span class="ico">📋</span>履歴</button>
+    <button data-tab="export"><span class="ico">📤</span>書き出し</button>
+  </nav>
+
+  <div id="toast" hidden></div>
+
+  <div class="modal-overlay" id="help-modal" hidden>
+    <div class="modal-card">
+      <h2>使い方</h2>
+      <h3>基本の流れ</h3>
+      <p>「入力」タブで交通費を記録 → 「履歴」タブで確認・修正 → 「書き出し」タブで申請用データを作成、の順で使います。記録をタップすると内容を編集できます。</p>
+      <p>右上の「設定」で名前を登録しておくと、書き出す交通費精算書（PDF）に毎回表示されます。</p>
+      <h3>ホーム画面への追加</h3>
+      <p>iPhone（Safari）：画面下の共有ボタン → 「ホーム画面に追加」</p>
+      <p>Android（Chrome）：右上のメニュー → 「ホーム画面に追加」または「アプリをインストール」</p>
+      <p>追加した後は、必ずホーム画面のアイコンから開いてください。iPhoneでは、アイコンから開いたアプリとSafariで開いたページとで記録が別々に保存されます。</p>
+      <h3>データの保存について</h3>
+      <p>記録はこの端末・このブラウザの中だけに保存され、他の人や他の端末には送信されません。ブラウザのデータ削除や機種変更で消えることがあるため、「書き出し」タブの「バックアップを書き出す」で定期的にファイル保存することをおすすめします。</p>
+      <h3>ご注意</h3>
+      <p>アプリ内蔵ブラウザ（一部のチャットアプリのプレビュー等）では、共有・印刷・ダウンロード機能が正しく動作しないことがあります。SafariやChromeで開いてご利用ください。</p>
+      <button class="modal-close" id="btn-help-close">閉じる</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settings-modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <h2 id="settings-title">設定</h2>
+      <div class="field">
+        <label for="s-name">名前</label>
+        <input type="text" id="s-name" autocomplete="name" placeholder="例：山田 太郎">
+        <div class="hint">交通費精算書（書き出し・PDF）に毎回表示されます。</div>
+      </div>
+      <div class="btn-row">
+        <button id="btn-settings-cancel" class="btn-secondary">キャンセル</button>
+        <button id="btn-settings-save" class="btn-confirm-ok">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="confirm-modal" hidden>
+    <div class="modal-card" role="alertdialog" aria-modal="true" aria-labelledby="confirm-message">
+      <p id="confirm-message"></p>
+      <div class="btn-row">
+        <button id="confirm-cancel" class="btn-secondary">キャンセル</button>
+        <button id="confirm-ok" class="btn-confirm-ok">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var KEYS = {
+  records: "expenseMemo.records",
+  shortcuts: "expenseMemo.shortcuts",
+  draft: "expenseMemo.draft",
+  firstRun: "expenseMemo.firstRunDismissed",
+  settings: "expenseMemo.settings"
+};
+
+function loadJSON(key, fallback){
+  try{
+    var raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  }catch(e){ return fallback; }
+}
+function saveJSON(key, val){
+  try{
+    localStorage.setItem(key, JSON.stringify(val));
+    return true;
+  }catch(e){
+    showToast("保存に失敗しました（ストレージ容量をご確認ください）");
+    return false;
+  }
+}
+
+var records = loadJSON(KEYS.records, []);
+var shortcuts = loadJSON(KEYS.shortcuts, []);
+var settings = loadJSON(KEYS.settings, {});
+if(!settings || typeof settings !== "object") settings = {};
+var editingId = null;
+var currentTripType = "round";
+var currentMonthKey = monthKey(new Date());
+var historySearch = "";
+var exportRows = null;
+var toastTimer = null;
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function pad2(n){ return String(n).padStart(2,"0"); }
+function todayStr(){
+  var d = new Date();
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+}
+function monthKey(d){ return d.getFullYear() + "-" + pad2(d.getMonth()+1); }
+function monthKeyOfDate(dateStr){ return dateStr ? dateStr.slice(0,7) : ""; }
+function monthLabel(key){
+  var parts = key.split("-");
+  return parts[0] + "年" + parseInt(parts[1],10) + "月";
+}
+function yen(n){ return "¥" + Number(n||0).toLocaleString("ja-JP"); }
+function recordTotal(r){ return r.tripType === "round" ? r.fare*2 : r.fare; }
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+  });
+}
+function weekdayShort(dateStr){
+  var d = new Date(dateStr + "T00:00:00");
+  return ["日","月","火","水","木","金","土"][d.getDay()];
+}
+function formatDateShort(dateStr){
+  var parts = dateStr.split("-");
+  return parseInt(parts[1],10) + "/" + parseInt(parts[2],10) + "（" + weekdayShort(dateStr) + "）";
+}
+function showToast(msg){
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.hidden = true; }, 2200);
+}
+
+var els = {};
+[
+  "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut",
+  "btn-duplicate-last","btn-cancel-edit","btn-save","draft-notice",
+  "shortcuts-card","shortcuts-list","fromList","toList","purposeList",
+  "hist-all-toggle","hist-month-nav","hist-prev","hist-next","hist-month-label",
+  "hist-search","hist-total","hist-list",
+  "exp-start","exp-end","btn-exp-generate","exp-preview","exp-table-body","exp-total",
+  "exp-actions","btn-exp-share","btn-exp-csv","btn-exp-print","btn-exp-copy","exp-status",
+  "btn-backup-export","btn-backup-import-trigger","backup-import-input","backup-status",
+  "first-run-banner","btn-first-run-help","btn-first-run-dismiss",
+  "help-modal","btn-help","btn-help-close","toast",
+  "confirm-modal","confirm-message","confirm-ok","confirm-cancel",
+  "btn-settings","settings-modal","s-name","btn-settings-cancel","btn-settings-save",
+  "exp-doc-name","exp-doc-period","exp-doc-total"
+].forEach(function(id){ els[id] = document.getElementById(id); });
+
+function askConfirm(message, okLabel, danger){
+  return new Promise(function(resolve){
+    els["confirm-message"].textContent = message;
+    els["confirm-ok"].textContent = okLabel || "OK";
+    els["confirm-ok"].classList.toggle("danger", !!danger);
+    els["confirm-modal"].hidden = false;
+    function done(result){
+      els["confirm-modal"].hidden = true;
+      els["confirm-ok"].onclick = null;
+      els["confirm-cancel"].onclick = null;
+      resolve(result);
+    }
+    els["confirm-ok"].onclick = function(){ done(true); };
+    els["confirm-cancel"].onclick = function(){ done(false); };
+  });
+}
+
+function setTripType(type){
+  currentTripType = type;
+  document.querySelectorAll(".segmented button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.trip === type);
+  });
+  updateTotalDisplay();
+}
+document.querySelectorAll(".segmented button").forEach(function(b){
+  b.addEventListener("click", function(){ setTripType(b.dataset.trip); saveDraft(); });
+});
+
+function updateTotalDisplay(){
+  var fare = parseInt(els["f-fare"].value, 10);
+  if(isNaN(fare) || fare < 0) fare = 0;
+  var total = currentTripType === "round" ? fare*2 : fare;
+  els["f-total"].innerHTML = currentTripType === "round"
+    ? "合計 <strong>" + yen(total) + "</strong>（片道 " + yen(fare) + "）"
+    : "合計 <strong>" + yen(total) + "</strong>";
+}
+els["f-fare"].addEventListener("input", function(){ updateTotalDisplay(); saveDraft(); });
+["f-date","f-from","f-to","f-purpose"].forEach(function(id){
+  els[id].addEventListener("input", saveDraft);
+});
+
+function resetForm(){
+  els["f-date"].value = todayStr();
+  els["f-from"].value = "";
+  els["f-to"].value = "";
+  els["f-fare"].value = "";
+  setTripType("round");
+  els["f-purpose"].value = "";
+  els["f-save-shortcut"].checked = false;
+  editingId = null;
+  els["btn-save"].textContent = "保存する";
+  els["btn-cancel-edit"].hidden = true;
+  updateTotalDisplay();
+}
+
+function saveDraft(){
+  if(editingId) return;
+  saveJSON(KEYS.draft, {
+    date: els["f-date"].value,
+    from: els["f-from"].value,
+    to: els["f-to"].value,
+    tripType: currentTripType,
+    fare: els["f-fare"].value,
+    purpose: els["f-purpose"].value
+  });
+}
+function clearDraft(){ localStorage.removeItem(KEYS.draft); }
+function loadDraftIfAny(){
+  var d = loadJSON(KEYS.draft, null);
+  if(!d) return;
+  var hasContent = d.from || d.to || d.fare || d.purpose;
+  if(!hasContent) return;
+  if(d.date) els["f-date"].value = d.date;
+  els["f-from"].value = d.from || "";
+  els["f-to"].value = d.to || "";
+  els["f-fare"].value = d.fare || "";
+  setTripType(d.tripType === "one" ? "one" : "round");
+  els["f-purpose"].value = d.purpose || "";
+  els["draft-notice"].hidden = false;
+}
+
+function refreshDatalists(){
+  function uniqueValues(field, limit){
+    var seen = {};
+    var out = [];
+    for(var i = records.length - 1; i >= 0 && out.length < limit; i--){
+      var v = records[i][field];
+      if(v && !seen[v]){ seen[v] = true; out.push(v); }
+    }
+    return out;
+  }
+  function fill(listEl, values){
+    listEl.innerHTML = values.map(function(v){
+      return "<option value=\"" + escapeHtml(v) + "\">";
+    }).join("");
+  }
+  fill(els.fromList, uniqueValues("from", 20));
+  fill(els.toList, uniqueValues("to", 20));
+  fill(els.purposeList, uniqueValues("purpose", 20));
+}
+
+function updateDuplicateButtonVisibility(){
+  els["btn-duplicate-last"].hidden = records.length === 0;
+}
+
+function renderShortcuts(){
+  if(shortcuts.length === 0){
+    els["shortcuts-card"].hidden = true;
+    return;
+  }
+  els["shortcuts-card"].hidden = false;
+  els["shortcuts-list"].innerHTML = shortcuts.map(function(s){
+    return "<button type=\"button\" class=\"chip\" data-id=\"" + s.id + "\">" +
+      escapeHtml(s.from) + "→" + escapeHtml(s.to) + "</button>";
+  }).join("");
+}
+
+var chipPress = { timer:null, id:null, longPressed:false, startX:0, startY:0 };
+els["shortcuts-list"].addEventListener("pointerdown", function(e){
+  var chip = e.target.closest(".chip");
+  if(!chip) return;
+  chipPress.id = chip.dataset.id;
+  chipPress.longPressed = false;
+  chipPress.startX = e.clientX;
+  chipPress.startY = e.clientY;
+  chipPress.timer = setTimeout(function(){
+    chipPress.longPressed = true;
+    var s = shortcuts.find(function(x){ return x.id === chipPress.id; });
+    if(!s) return;
+    askConfirm("ショートカット「" + s.from + "→" + s.to + "」を削除しますか？", "削除", true).then(function(ok){
+      if(!ok) return;
+      shortcuts = shortcuts.filter(function(x){ return x.id !== s.id; });
+      saveJSON(KEYS.shortcuts, shortcuts);
+      renderShortcuts();
+      showToast("ショートカットを削除しました");
+    });
+  }, 550);
+});
+els["shortcuts-list"].addEventListener("pointermove", function(e){
+  if(chipPress.timer && (Math.abs(e.clientX - chipPress.startX) > 8 || Math.abs(e.clientY - chipPress.startY) > 8)){
+    clearTimeout(chipPress.timer);
+  }
+});
+["pointerup","pointerleave","pointercancel"].forEach(function(evt){
+  els["shortcuts-list"].addEventListener(evt, function(){ clearTimeout(chipPress.timer); });
+});
+els["shortcuts-list"].addEventListener("click", function(e){
+  var chip = e.target.closest(".chip");
+  if(!chip) return;
+  if(chipPress.longPressed){ chipPress.longPressed = false; return; }
+  var s = shortcuts.find(function(x){ return x.id === chip.dataset.id; });
+  if(!s) return;
+  els["f-from"].value = s.from;
+  els["f-to"].value = s.to;
+  els["f-fare"].value = s.fare;
+  setTripType(s.tripType);
+  els["f-purpose"].value = s.purpose || "";
+  saveDraft();
+  showToast("ショートカットを反映しました");
+});
+
+els["btn-duplicate-last"].addEventListener("click", function(){
+  if(records.length === 0) return;
+  var last = records.slice().sort(function(a,b){ return b.createdAt - a.createdAt; })[0];
+  els["f-date"].value = todayStr();
+  els["f-from"].value = last.from;
+  els["f-to"].value = last.to;
+  els["f-fare"].value = last.fare;
+  setTripType(last.tripType);
+  els["f-purpose"].value = last.purpose || "";
+  editingId = null;
+  els["btn-save"].textContent = "保存する";
+  els["btn-cancel-edit"].hidden = true;
+  saveDraft();
+  showToast("前回の内容を入力欄に反映しました");
+});
+
+els["btn-cancel-edit"].addEventListener("click", function(){
+  resetForm();
+});
+
+els["btn-save"].addEventListener("click", function(){
+  var date = els["f-date"].value;
+  var from = els["f-from"].value.trim();
+  var to = els["f-to"].value.trim();
+  var fare = parseInt(els["f-fare"].value, 10);
+  var purpose = els["f-purpose"].value.trim();
+
+  if(!date || !from || !to){
+    showToast("日付・出発地・到着地は必須です");
+    return;
+  }
+  if(isNaN(fare) || fare < 0){
+    showToast("片道料金を正しく入力してください");
+    return;
+  }
+
+  var entry = {
+    date: date, from: from, to: to, tripType: currentTripType, fare: fare, purpose: purpose,
+    saveShortcut: els["f-save-shortcut"].checked
+  };
+
+  if(!editingId){
+    var dup = records.some(function(r){
+      return r.date === date && r.from === from && r.to === to && r.tripType === entry.tripType;
+    });
+    if(dup){
+      askConfirm("同じ日付・経路の記録が既にあります。もう1件追加しますか？", "追加する", false).then(function(ok){
+        if(ok) commitSave(entry);
+      });
+      return;
+    }
+  }
+  commitSave(entry);
+});
+
+function commitSave(e){
+  var wasEditing = !!editingId;
+  var fields = { date: e.date, from: e.from, to: e.to, tripType: e.tripType, fare: e.fare, purpose: e.purpose };
+
+  if(wasEditing){
+    var idx = records.findIndex(function(r){ return r.id === editingId; });
+    if(idx !== -1){
+      records[idx] = Object.assign({}, records[idx], fields, { updatedAt: Date.now() });
+    }
+  }else{
+    records.push(Object.assign({ id: uid() }, fields, { createdAt: Date.now(), updatedAt: Date.now() }));
+  }
+  saveJSON(KEYS.records, records);
+
+  if(e.saveShortcut){
+    var exists = shortcuts.some(function(s){
+      return s.from === e.from && s.to === e.to && s.tripType === e.tripType;
+    });
+    if(!exists){
+      shortcuts.push({ id: uid(), from: e.from, to: e.to, tripType: e.tripType, fare: e.fare, purpose: e.purpose });
+      saveJSON(KEYS.shortcuts, shortcuts);
+    }
+  }
+
+  clearDraft();
+  els["draft-notice"].hidden = true;
+  resetForm();
+  refreshDatalists();
+  renderShortcuts();
+  renderHistory();
+  updateDuplicateButtonVisibility();
+  showToast(wasEditing ? "更新しました" : "保存しました");
+}
+
+function loadRecordIntoForm(r){
+  els["f-date"].value = r.date;
+  els["f-from"].value = r.from;
+  els["f-to"].value = r.to;
+  els["f-fare"].value = r.fare;
+  setTripType(r.tripType);
+  els["f-purpose"].value = r.purpose || "";
+  els["f-save-shortcut"].checked = false;
+  editingId = r.id;
+  els["btn-save"].textContent = "更新する";
+  els["btn-cancel-edit"].hidden = false;
+  switchTab("input");
+}
+
+function visibleHistoryRecords(){
+  var list = records.slice();
+  if(!els["hist-all-toggle"].checked){
+    list = list.filter(function(r){ return monthKeyOfDate(r.date) === currentMonthKey; });
+  }
+  if(historySearch){
+    var q = historySearch.toLowerCase();
+    list = list.filter(function(r){
+      return (r.from && r.from.toLowerCase().indexOf(q) !== -1) ||
+             (r.to && r.to.toLowerCase().indexOf(q) !== -1) ||
+             (r.purpose && r.purpose.toLowerCase().indexOf(q) !== -1);
+    });
+  }
+  list.sort(function(a,b){
+    if(a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return b.createdAt - a.createdAt;
+  });
+  return list;
+}
+
+function renderHistoryRow(r){
+  var badge = r.tripType === "round" ? "往復" : "片道";
+  return "<div class=\"history-row-wrap\" data-id=\"" + r.id + "\">" +
+    "<button class=\"history-delete-btn\" data-id=\"" + r.id + "\">削除</button>" +
+    "<div class=\"history-row\" data-id=\"" + r.id + "\">" +
+      "<div class=\"row-top\">" +
+        "<span class=\"route\">" + escapeHtml(r.from) + " → " + escapeHtml(r.to) + "</span>" +
+        "<span class=\"amount\">" + yen(recordTotal(r)) + "</span>" +
+      "</div>" +
+      "<div class=\"row-bottom\">" +
+        "<span class=\"meta\"><span class=\"badge\">" + badge + "</span>" + formatDateShort(r.date) + "</span>" +
+        "<span class=\"meta\">" + escapeHtml(r.purpose || "") + "</span>" +
+      "</div>" +
+    "</div>" +
+  "</div>";
+}
+
+function renderHistory(){
+  var allMode = els["hist-all-toggle"].checked;
+  els["hist-month-nav"].hidden = allMode;
+  els["hist-month-label"].textContent = monthLabel(currentMonthKey);
+
+  var list = visibleHistoryRecords();
+  var total = list.reduce(function(sum,r){ return sum + recordTotal(r); }, 0);
+  els["hist-total"].innerHTML = (allMode ? "表示中の合計" : monthLabel(currentMonthKey) + "の合計") +
+    "　<strong>" + yen(total) + "</strong>　（" + list.length + "件）";
+
+  if(list.length === 0){
+    els["hist-list"].innerHTML = "<div class=\"empty-state\">記録がありません</div>";
+    return;
+  }
+
+  if(!allMode){
+    els["hist-list"].innerHTML = list.map(renderHistoryRow).join("");
+    return;
+  }
+
+  var groups = {};
+  var order = [];
+  list.forEach(function(r){
+    var k = monthKeyOfDate(r.date);
+    if(!groups[k]){ groups[k] = []; order.push(k); }
+    groups[k].push(r);
+  });
+  order.sort().reverse();
+  els["hist-list"].innerHTML = order.map(function(k){
+    var groupTotal = groups[k].reduce(function(s,r){ return s + recordTotal(r); }, 0);
+    return "<div class=\"month-group-title\">" + monthLabel(k) + "　" + yen(groupTotal) + "</div>" +
+      groups[k].map(renderHistoryRow).join("");
+  }).join("");
+}
+
+els["hist-all-toggle"].addEventListener("change", renderHistory);
+els["hist-search"].addEventListener("input", function(){
+  historySearch = els["hist-search"].value.trim();
+  renderHistory();
+});
+els["hist-prev"].addEventListener("click", function(){
+  var p = currentMonthKey.split("-");
+  var d = new Date(parseInt(p[0],10), parseInt(p[1],10) - 2, 1);
+  currentMonthKey = monthKey(d);
+  renderHistory();
+});
+els["hist-next"].addEventListener("click", function(){
+  var p = currentMonthKey.split("-");
+  var d = new Date(parseInt(p[0],10), parseInt(p[1],10), 1);
+  currentMonthKey = monthKey(d);
+  renderHistory();
+});
+
+var swipe = { active:false, rowEl:null, wrapEl:null, startX:0, dx:0, openId:null };
+els["hist-list"].addEventListener("pointerdown", function(e){
+  var row = e.target.closest(".history-row");
+  if(!row) return;
+  var wrap = row.closest(".history-row-wrap");
+  if(swipe.openId && swipe.openId !== wrap.dataset.id) closeOpenSwipe();
+  swipe.active = true;
+  swipe.rowEl = row;
+  swipe.wrapEl = wrap;
+  swipe.startX = e.clientX;
+  swipe.dx = wrap.dataset.id === swipe.openId ? -88 : 0;
+  row.style.transition = "none";
+  row.setPointerCapture(e.pointerId);
+});
+els["hist-list"].addEventListener("pointermove", function(e){
+  if(!swipe.active) return;
+  var delta = e.clientX - swipe.startX;
+  var base = swipe.wrapEl.dataset.id === swipe.openId ? -88 : 0;
+  var next = Math.min(0, Math.max(-88, base + delta));
+  swipe.dx = next;
+  swipe.rowEl.style.transform = "translateX(" + next + "px)";
+});
+function endSwipe(){
+  if(!swipe.active) return;
+  swipe.active = false;
+  swipe.rowEl.style.transition = "transform .18s ease";
+  if(swipe.dx < -44){
+    swipe.rowEl.style.transform = "translateX(-88px)";
+    swipe.openId = swipe.wrapEl.dataset.id;
+  }else{
+    swipe.rowEl.style.transform = "translateX(0)";
+    if(swipe.openId === swipe.wrapEl.dataset.id) swipe.openId = null;
+  }
+}
+["pointerup","pointercancel"].forEach(function(evt){
+  els["hist-list"].addEventListener(evt, endSwipe);
+});
+function closeOpenSwipe(){
+  if(!swipe.openId) return;
+  var wrap = els["hist-list"].querySelector(".history-row-wrap[data-id=\"" + swipe.openId + "\"]");
+  if(wrap){
+    var row = wrap.querySelector(".history-row");
+    row.style.transition = "transform .18s ease";
+    row.style.transform = "translateX(0)";
+  }
+  swipe.openId = null;
+}
+els["hist-list"].addEventListener("click", function(e){
+  var delBtn = e.target.closest(".history-delete-btn");
+  if(delBtn){
+    var id = delBtn.dataset.id;
+    askConfirm("この記録を削除しますか？", "削除", true).then(function(ok){
+      if(!ok){
+        closeOpenSwipe();
+        return;
+      }
+      records = records.filter(function(r){ return r.id !== id; });
+      saveJSON(KEYS.records, records);
+      swipe.openId = null;
+      renderHistory();
+      refreshDatalists();
+      updateDuplicateButtonVisibility();
+      showToast("削除しました");
+    });
+    return;
+  }
+  var row = e.target.closest(".history-row");
+  if(!row) return;
+  var wrap = row.closest(".history-row-wrap");
+  if(swipe.openId === wrap.dataset.id){
+    closeOpenSwipe();
+    return;
+  }
+  var r = records.find(function(x){ return x.id === wrap.dataset.id; });
+  if(r) loadRecordIntoForm(r);
+});
+
+function buildCSV(list){
+  var header = ["日付","出発地","到着地","種別","片道料金","金額","目的・訪問先"];
+  var rows = list.map(function(r){
+    return [
+      r.date,
+      r.from,
+      r.to,
+      r.tripType === "round" ? "往復" : "片道",
+      r.fare,
+      recordTotal(r),
+      r.purpose || ""
+    ];
+  });
+  var csvLines = [header].concat(rows).map(function(cols){
+    return cols.map(function(v){
+      var s = String(v);
+      if(/[",\n]/.test(s)) s = "\"" + s.replace(/"/g,"\"\"") + "\"";
+      return s;
+    }).join(",");
+  });
+  return "﻿" + csvLines.join("\r\n");
+}
+
+function setExportStatus(msg, kind){
+  var el = els["exp-status"];
+  el.textContent = msg;
+  el.className = kind || "";
+}
+
+els["btn-exp-generate"].addEventListener("click", function(){
+  var start = els["exp-start"].value;
+  var end = els["exp-end"].value;
+  if(!start || !end || start > end){
+    showToast("開始日・終了日を正しく指定してください");
+    return;
+  }
+  exportRows = records.filter(function(r){ return r.date >= start && r.date <= end; })
+    .sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
+
+  els["exp-table-body"].innerHTML = exportRows.map(function(r){
+    return "<tr><td class=\"nowrap\">" + formatDateShort(r.date) + "</td><td>" + escapeHtml(r.from) + "→" + escapeHtml(r.to) + "</td>" +
+      "<td class=\"nowrap\">" + (r.tripType === "round" ? "往復" : "片道") + "</td><td class=\"num\">" + yen(recordTotal(r)) + "</td>" +
+      "<td>" + escapeHtml(r.purpose || "") + "</td></tr>";
+  }).join("") || "<tr><td colspan=\"5\">該当する記録がありません</td></tr>";
+
+  var total = exportRows.reduce(function(s,r){ return s + recordTotal(r); }, 0);
+  els["exp-total"].textContent = yen(total);
+  els["exp-doc-total"].textContent = yen(total);
+  els["exp-doc-period"].textContent = formatDateLong(start) + " 〜 " + formatDateLong(end);
+  renderDocName();
+  els["exp-preview"].hidden = false;
+  setExportStatus(settings.name ? "" : "名前が未設定です。右上の「設定」から入力すると精算書に表示されます。", settings.name ? "" : "error");
+});
+
+function formatDateLong(dateStr){
+  var p = dateStr.split("-");
+  return p[0] + "年" + parseInt(p[1],10) + "月" + parseInt(p[2],10) + "日";
+}
+function renderDocName(){
+  var name = settings.name || "";
+  els["exp-doc-name"].textContent = name || "未設定（右上の「設定」から入力）";
+  els["exp-doc-name"].classList.toggle("unset", !name);
+}
+
+els["btn-exp-csv"].addEventListener("click", function(){
+  if(!exportRows) return;
+  try{
+    var blob = new Blob([buildCSV(exportRows)], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "交通費_" + els["exp-start"].value + "_" + els["exp-end"].value + ".csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    setExportStatus("CSVを保存しました", "ok");
+  }catch(e){
+    setExportStatus("CSVの保存に失敗しました", "error");
+  }
+});
+
+els["btn-exp-print"].addEventListener("click", function(){
+  if(!exportRows) return;
+  window.print();
+});
+
+els["btn-exp-copy"].addEventListener("click", function(){
+  if(!exportRows) return;
+  var csv = buildCSV(exportRows);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(csv).then(function(){
+      setExportStatus("CSVをコピーしました", "ok");
+    }).catch(function(){ fallbackCopy(csv); });
+  }else{
+    fallbackCopy(csv);
+  }
+});
+function fallbackCopy(text){
+  try{
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = document.execCommand("copy");
+    ta.remove();
+    setExportStatus(ok ? "CSVをコピーしました" : "コピーできませんでした。手動で選択してコピーしてください。", ok ? "ok" : "error");
+  }catch(e){
+    setExportStatus("この環境ではコピーできません。CSVを保存してご利用ください。", "error");
+  }
+}
+
+els["btn-exp-share"].addEventListener("click", function(){
+  if(!exportRows) return;
+  var csv = buildCSV(exportRows);
+  var filename = "交通費_" + els["exp-start"].value + "_" + els["exp-end"].value + ".csv";
+  var summary = "交通費精算書" + (settings.name ? "（" + settings.name + "）" : "") +
+    " 期間：" + els["exp-doc-period"].textContent + " 合計：" + els["exp-total"].textContent;
+
+  if(navigator.canShare && window.File){
+    try{
+      var file = new File([csv], filename, { type: "text/csv" });
+      if(navigator.canShare({ files: [file] })){
+        navigator.share({ files: [file], title: "交通費メモ", text: summary })
+          .then(function(){ setExportStatus("共有しました", "ok"); })
+          .catch(function(){ setExportStatus("共有をキャンセルしました", ""); });
+        return;
+      }
+    }catch(e){}
+  }
+  if(navigator.share){
+    navigator.share({ title: "交通費メモ", text: summary })
+      .then(function(){ setExportStatus("共有しました", "ok"); })
+      .catch(function(){ setExportStatus("共有をキャンセルしました", ""); });
+  }else{
+    setExportStatus("この端末は共有に対応していません。CSV保存かコピーをご利用ください。", "error");
+  }
+});
+
+function setBackupStatus(msg, kind){
+  var el = els["backup-status"];
+  el.textContent = msg;
+  el.className = kind || "";
+}
+els["btn-backup-export"].addEventListener("click", function(){
+  try{
+    var data = { records: records, shortcuts: shortcuts, settings: settings, exportedAt: new Date().toISOString() };
+    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "交通費メモ_バックアップ_" + todayStr() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    setBackupStatus("バックアップを書き出しました", "ok");
+  }catch(e){
+    setBackupStatus("書き出しに失敗しました", "error");
+  }
+});
+els["btn-backup-import-trigger"].addEventListener("click", function(){
+  els["backup-import-input"].click();
+});
+els["backup-import-input"].addEventListener("change", function(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var data = JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.records)){
+        throw new Error("invalid");
+      }
+      askConfirm("バックアップ（" + data.records.length + "件）を読み込みます。現在のデータは上書きされます。", "上書きして読み込む", true).then(function(ok){
+        if(!ok){
+          setBackupStatus("読み込みをキャンセルしました", "");
+          return;
+        }
+        records = data.records;
+        shortcuts = Array.isArray(data.shortcuts) ? data.shortcuts : [];
+        saveJSON(KEYS.records, records);
+        saveJSON(KEYS.shortcuts, shortcuts);
+        if(data.settings && typeof data.settings === "object"){
+          settings = data.settings;
+          saveJSON(KEYS.settings, settings);
+        }
+        refreshDatalists();
+        renderShortcuts();
+        renderHistory();
+        updateDuplicateButtonVisibility();
+        setBackupStatus("バックアップを読み込みました", "ok");
+      });
+    }catch(err){
+      setBackupStatus("ファイルの形式が正しくありません", "error");
+    }
+  };
+  reader.readAsText(file);
+  els["backup-import-input"].value = "";
+});
+
+function switchTab(name){
+  ["input","history","export"].forEach(function(t){
+    document.getElementById("tab-" + t).hidden = t !== name;
+  });
+  document.querySelectorAll(".tabbar button").forEach(function(b){
+    b.classList.toggle("active", b.dataset.tab === name);
+  });
+  if(name === "history") renderHistory();
+}
+document.querySelectorAll(".tabbar button").forEach(function(b){
+  b.addEventListener("click", function(){ switchTab(b.dataset.tab); });
+});
+
+els["btn-settings"].addEventListener("click", function(){
+  els["s-name"].value = settings.name || "";
+  els["settings-modal"].hidden = false;
+});
+els["btn-settings-cancel"].addEventListener("click", function(){ els["settings-modal"].hidden = true; });
+els["btn-settings-save"].addEventListener("click", function(){
+  settings.name = els["s-name"].value.trim();
+  if(!saveJSON(KEYS.settings, settings)) return;
+  els["settings-modal"].hidden = true;
+  if(!els["exp-preview"].hidden){
+    renderDocName();
+    setExportStatus("");
+  }
+  showToast(settings.name ? "名前を保存しました" : "名前を未設定にしました");
+});
+
+els["btn-help"].addEventListener("click", function(){ els["help-modal"].hidden = false; });
+els["btn-help-close"].addEventListener("click", function(){ els["help-modal"].hidden = true; });
+els["btn-first-run-help"].addEventListener("click", function(){ els["help-modal"].hidden = false; });
+els["btn-first-run-dismiss"].addEventListener("click", function(){
+  els["first-run-banner"].hidden = true;
+  saveJSON(KEYS.firstRun, true);
+});
+
+function init(){
+  var startOfMonth = todayStr().slice(0,8) + "01";
+  els["exp-start"].value = startOfMonth;
+  els["exp-end"].value = todayStr();
+
+  resetForm();
+  loadDraftIfAny();
+  refreshDatalists();
+  renderShortcuts();
+  updateDuplicateButtonVisibility();
+
+  if(!loadJSON(KEYS.firstRun, false)){
+    els["first-run-banner"].hidden = false;
+  }
+
+  var canUseServiceWorker = "serviceWorker" in navigator &&
+    (location.protocol === "https:" || location.hostname === "localhost");
+  if(canUseServiceWorker){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  }
+}
+init();
+
+})();
+</script>
+</body>
+</html>
