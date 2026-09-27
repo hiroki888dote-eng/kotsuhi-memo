@@ -199,7 +199,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
   <header>
     <h1>交通費メモ</h1>
     <div class="header-actions">
-      <button id="btn-settings">設定</button>
+      <button id="btn-settings">名前設定</button>
       <button id="btn-help" aria-label="ヘルプ">?</button>
     </div>
   </header>
@@ -349,7 +349,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       <h2>使い方</h2>
       <h3>基本の流れ</h3>
       <p>「入力」タブで交通費を記録 → 「履歴」タブで確認・修正 → 「書き出し」タブで申請用データを作成、の順で使います。記録をタップすると内容を編集できます。</p>
-      <p>右上の「設定」で名前を登録しておくと、書き出す交通費精算書（PDF）に毎回表示されます。</p>
+      <p>右上の「名前設定」で名前を登録しておくと、書き出す交通費精算書（PDF）に毎回表示されます。</p>
       <h3>ホーム画面への追加</h3>
       <p>iPhone（Safari）：画面下の共有ボタン → 「ホーム画面に追加」</p>
       <p>Android（Chrome）：右上のメニュー → 「ホーム画面に追加」または「アプリをインストール」</p>
@@ -364,7 +364,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
 
   <div class="modal-overlay" id="settings-modal" hidden>
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-      <h2 id="settings-title">設定</h2>
+      <h2 id="settings-title">名前設定</h2>
       <div class="field">
         <label for="s-name">名前</label>
         <input type="text" id="s-name" autocomplete="name" placeholder="例：山田 太郎">
@@ -960,7 +960,7 @@ els["btn-exp-generate"].addEventListener("click", function(){
   els["exp-doc-period"].textContent = formatDateLong(start) + " 〜 " + formatDateLong(end);
   renderDocName();
   els["exp-preview"].hidden = false;
-  setExportStatus(settings.name ? "" : "名前が未設定です。右上の「設定」から入力すると精算書に表示されます。", settings.name ? "" : "error");
+  setExportStatus(settings.name ? "" : "名前が未設定です。右上の「名前設定」から入力すると精算書に表示されます。", settings.name ? "" : "error");
 });
 
 function formatDateLong(dateStr){
@@ -969,7 +969,7 @@ function formatDateLong(dateStr){
 }
 function renderDocName(){
   var name = settings.name || "";
-  els["exp-doc-name"].textContent = name || "未設定（右上の「設定」から入力）";
+  els["exp-doc-name"].textContent = name || "未設定（右上の「名前設定」から入力）";
   els["exp-doc-name"].classList.toggle("unset", !name);
 }
 
@@ -1000,16 +1000,16 @@ var PDF_PX_H = 1754;
 var PDF_FONT = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif';
 
 function renderPdfPages(rows, name, periodText, totalText){
-  var M = 110;
+  var M = 90;
   var tableW = PDF_PX_W - M * 2;
   var cols = [
-    { label: "日付", w: 170 },
-    { label: "経路", w: 350 },
-    { label: "種別", w: 90 },
-    { label: "金額", w: 150, right: true },
-    { label: "目的・訪問先", w: tableW - 760 }
+    { label: "日付", w: 130 },
+    { label: "経路", w: 330 },
+    { label: "種別", w: 70 },
+    { label: "金額", w: 120, right: true }
   ];
-  var LINE = 34, PAD = 12, bottom = PDF_PX_H - M - 30;
+  cols.push({ label: "目的・訪問先", w: tableW - cols.reduce(function(s, c){ return s + c.w; }, 0) });
+  var TEXT = 20, LINE = 27, PAD = 6, bottom = PDF_PX_H - M - 20;
   var pages = [], ctx, y;
 
   function font(size, bold){ ctx.font = (bold ? "700 " : "400 ") + size + "px " + PDF_FONT; }
@@ -1033,24 +1033,24 @@ function renderPdfPages(rows, name, periodText, totalText){
     pages.push(canvas);
     y = M;
     if(pages.length > 1){
-      font(22, false);
+      font(18, false);
       ctx.fillStyle = "#555555";
       ctx.textAlign = "left";
       ctx.fillText("交通費精算書" + (name ? "（" + name + "）" : "") + "　続き", M, y);
-      y += 50;
+      y += 38;
     }
   }
   function drawRow(cells, opts){
-    font(24, !!opts.bold);
+    font(TEXT, !!opts.bold);
     var cellLines = cells.map(function(c, i){
       var w = opts.span && i === 0 ? cols[0].w + cols[1].w + cols[2].w : cols[i].w;
-      return c === null ? [] : wrap(c, w - PAD * 2);
+      return c === null ? [] : wrap(c, w - PAD * 2 - 6);
     });
-    var rowH = Math.max(1, Math.max.apply(null, cellLines.map(function(l){ return l.length; }))) * LINE + PAD * 2 - 8;
+    var rowH = Math.max(1, Math.max.apply(null, cellLines.map(function(l){ return l.length; }))) * LINE + PAD * 2;
     if(y + rowH > bottom && !opts.isHeader){
       newPage();
       drawRow(cols.map(function(c){ return c.label; }), { bold: true, isHeader: true });
-      font(24, !!opts.bold);
+      font(TEXT, !!opts.bold);
     }
     var x = M;
     for(var i = 0; i < cols.length; i++){
@@ -1061,13 +1061,13 @@ function renderPdfPages(rows, name, periodText, totalText){
         ctx.fillRect(x, y, w, rowH);
       }
       ctx.strokeStyle = "#666666";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(x, y, w, rowH);
       ctx.fillStyle = "#000000";
       ctx.textAlign = cols[i].right && !opts.isHeader ? "right" : "left";
-      var tx = ctx.textAlign === "right" ? x + w - PAD : x + PAD;
+      var tx = ctx.textAlign === "right" ? x + w - PAD - 3 : x + PAD + 3;
       (cellLines[i] || []).forEach(function(line, li){
-        ctx.fillText(line, tx, y + PAD - 4 + LINE / 2 + li * LINE);
+        ctx.fillText(line, tx, y + PAD + LINE / 2 + li * LINE);
       });
       x += w;
     }
@@ -1075,31 +1075,31 @@ function renderPdfPages(rows, name, periodText, totalText){
   }
 
   newPage();
-  font(50, true);
+  font(42, true);
   ctx.fillStyle = "#000000";
   ctx.textAlign = "center";
-  if("letterSpacing" in ctx) ctx.letterSpacing = "14px";
-  ctx.fillText("交通費精算書", PDF_PX_W / 2, y + 20);
+  if("letterSpacing" in ctx) ctx.letterSpacing = "12px";
+  ctx.fillText("交通費精算書", PDF_PX_W / 2, y + 16);
   if("letterSpacing" in ctx) ctx.letterSpacing = "0px";
-  y += 110;
+  y += 84;
 
   [["名前", name || "未設定"], ["期間", periodText], ["合計金額", totalText]].forEach(function(item){
     ctx.textAlign = "left";
-    font(24, false);
+    font(19, false);
     ctx.fillStyle = "#444444";
     ctx.fillText(item[0], M, y);
-    font(item[0] === "合計金額" ? 32 : 28, true);
+    font(item[0] === "合計金額" ? 26 : 22, true);
     ctx.fillStyle = "#000000";
-    ctx.fillText(item[1], M + 170, y);
+    ctx.fillText(item[1], M + 140, y);
     ctx.strokeStyle = "#888888";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(M, y + 28);
-    ctx.lineTo(PDF_PX_W - M, y + 28);
+    ctx.moveTo(M, y + 22);
+    ctx.lineTo(PDF_PX_W - M, y + 22);
     ctx.stroke();
-    y += 66;
+    y += 50;
   });
-  y += 40;
+  y += 28;
 
   drawRow(cols.map(function(c){ return c.label; }), { bold: true, isHeader: true });
   if(rows.length === 0){
@@ -1118,7 +1118,7 @@ function renderPdfPages(rows, name, periodText, totalText){
 
   pages.forEach(function(canvas, i){
     var c = canvas.getContext("2d");
-    c.font = "400 20px " + PDF_FONT;
+    c.font = "400 17px " + PDF_FONT;
     c.fillStyle = "#666666";
     c.textAlign = "center";
     c.textBaseline = "middle";
