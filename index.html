@@ -152,9 +152,9 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
 .doc-meta dd{margin:0;font-size:14.5px;font-weight:600;color:var(--text);}
 .doc-meta dd.unset{font-weight:400;color:var(--danger);font-size:13px;}
 #exp-doc-total{font-size:17px;font-variant-numeric:tabular-nums;}
-#exp-status,#backup-status{font-size:13px;margin-top:8px;color:var(--text-secondary);}
-#exp-status.ok,#backup-status.ok{color:var(--success);}
-#exp-status.error,#backup-status.error{color:var(--danger);}
+#exp-status{font-size:13px;margin-top:8px;color:var(--text-secondary);}
+#exp-status.ok{color:var(--success);}
+#exp-status.error{color:var(--danger);}
 
 #first-run-banner{margin:12px 16px 0;}
 #first-run-banner p{margin:0 0 10px;font-size:13.5px;}
@@ -333,17 +333,6 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         </div>
         <div id="exp-status"></div>
       </div>
-
-      <div class="card">
-        <p class="section-title">データのバックアップ</p>
-        <p class="hint" style="margin-top:-4px;">機種変更やアプリの再インストールに備え、記録をファイルとして保存できます。</p>
-        <div class="btn-row" style="margin-top:10px;">
-          <button id="btn-backup-export" class="btn-secondary">バックアップを書き出す</button>
-          <button id="btn-backup-import-trigger" class="btn-secondary">バックアップを読み込む</button>
-        </div>
-        <input type="file" id="backup-import-input" accept="application/json" hidden>
-        <div id="backup-status"></div>
-      </div>
     </section>
   </main>
 
@@ -366,7 +355,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       <p>Android（Chrome）：右上のメニュー → 「ホーム画面に追加」または「アプリをインストール」</p>
       <p>追加した後は、必ずホーム画面のアイコンから開いてください。iPhoneでは、アイコンから開いたアプリとSafariで開いたページとで記録が別々に保存されます。</p>
       <h3>データの保存について</h3>
-      <p>記録はこの端末・このブラウザの中だけに保存され、他の人や他の端末には送信されません。ブラウザのデータ削除や機種変更で消えることがあるため、「書き出し」タブの「バックアップを書き出す」で定期的にファイル保存することをおすすめします。</p>
+      <p>記録はこの端末・このブラウザの中だけに保存され、他の人や他の端末には送信されません。ホーム画面のアイコンを削除したり、ブラウザのデータを消去したりすると記録も消えるのでご注意ください。</p>
       <h3>ご注意</h3>
       <p>アプリ内蔵ブラウザ（一部のチャットアプリのプレビュー等）では、共有・印刷・ダウンロード機能が正しく動作しないことがあります。SafariやChromeで開いてご利用ください。</p>
       <button class="modal-close" id="btn-help-close">閉じる</button>
@@ -482,7 +471,6 @@ var els = {};
   "hist-search","hist-total","hist-list",
   "exp-start","exp-end","btn-exp-generate","exp-preview","exp-table-body","exp-total",
   "exp-actions","btn-exp-share","btn-exp-csv","btn-exp-print","btn-exp-copy","exp-status",
-  "btn-backup-export","btn-backup-import-trigger","backup-import-input","backup-status",
   "first-run-banner","btn-first-run-help","btn-first-run-dismiss",
   "help-modal","btn-help","btn-help-close","toast",
   "confirm-modal","confirm-message","confirm-ok","confirm-cancel",
@@ -985,27 +973,240 @@ function renderDocName(){
   els["exp-doc-name"].classList.toggle("unset", !name);
 }
 
+function downloadBlob(blob, filename){
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 10000);
+}
+
 els["btn-exp-csv"].addEventListener("click", function(){
   if(!exportRows) return;
   try{
     var blob = new Blob([buildCSV(exportRows)], { type: "text/csv;charset=utf-8" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "交通費_" + els["exp-start"].value + "_" + els["exp-end"].value + ".csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    downloadBlob(blob, "交通費_" + els["exp-start"].value + "_" + els["exp-end"].value + ".csv");
     setExportStatus("CSVを保存しました", "ok");
   }catch(e){
     setExportStatus("CSVの保存に失敗しました", "error");
   }
 });
 
+var PDF_PX_W = 1240;
+var PDF_PX_H = 1754;
+var PDF_FONT = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Meiryo",sans-serif';
+
+function renderPdfPages(rows, name, periodText, totalText){
+  var M = 110;
+  var tableW = PDF_PX_W - M * 2;
+  var cols = [
+    { label: "日付", w: 170 },
+    { label: "経路", w: 350 },
+    { label: "種別", w: 90 },
+    { label: "金額", w: 150, right: true },
+    { label: "目的・訪問先", w: tableW - 760 }
+  ];
+  var LINE = 34, PAD = 12, bottom = PDF_PX_H - M - 30;
+  var pages = [], ctx, y;
+
+  function font(size, bold){ ctx.font = (bold ? "700 " : "400 ") + size + "px " + PDF_FONT; }
+  function wrap(text, maxW){
+    var lines = [], line = "";
+    Array.from(String(text)).forEach(function(ch){
+      if(line && ctx.measureText(line + ch).width > maxW){ lines.push(line); line = ch; }
+      else line += ch;
+    });
+    lines.push(line);
+    return lines;
+  }
+  function newPage(){
+    var canvas = document.createElement("canvas");
+    canvas.width = PDF_PX_W;
+    canvas.height = PDF_PX_H;
+    ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, PDF_PX_W, PDF_PX_H);
+    ctx.textBaseline = "middle";
+    pages.push(canvas);
+    y = M;
+    if(pages.length > 1){
+      font(22, false);
+      ctx.fillStyle = "#555555";
+      ctx.textAlign = "left";
+      ctx.fillText("交通費精算書" + (name ? "（" + name + "）" : "") + "　続き", M, y);
+      y += 50;
+    }
+  }
+  function drawRow(cells, opts){
+    font(24, !!opts.bold);
+    var cellLines = cells.map(function(c, i){
+      var w = opts.span && i === 0 ? cols[0].w + cols[1].w + cols[2].w : cols[i].w;
+      return c === null ? [] : wrap(c, w - PAD * 2);
+    });
+    var rowH = Math.max(1, Math.max.apply(null, cellLines.map(function(l){ return l.length; }))) * LINE + PAD * 2 - 8;
+    if(y + rowH > bottom && !opts.isHeader){
+      newPage();
+      drawRow(cols.map(function(c){ return c.label; }), { bold: true, isHeader: true });
+      font(24, !!opts.bold);
+    }
+    var x = M;
+    for(var i = 0; i < cols.length; i++){
+      if(opts.span && (i === 1 || i === 2)) continue;
+      var w = opts.span && i === 0 ? cols[0].w + cols[1].w + cols[2].w : cols[i].w;
+      if(opts.isHeader || opts.bold){
+        ctx.fillStyle = opts.isHeader ? "#eeeeee" : "#f6f6f6";
+        ctx.fillRect(x, y, w, rowH);
+      }
+      ctx.strokeStyle = "#666666";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, w, rowH);
+      ctx.fillStyle = "#000000";
+      ctx.textAlign = cols[i].right && !opts.isHeader ? "right" : "left";
+      var tx = ctx.textAlign === "right" ? x + w - PAD : x + PAD;
+      (cellLines[i] || []).forEach(function(line, li){
+        ctx.fillText(line, tx, y + PAD - 4 + LINE / 2 + li * LINE);
+      });
+      x += w;
+    }
+    y += rowH;
+  }
+
+  newPage();
+  font(50, true);
+  ctx.fillStyle = "#000000";
+  ctx.textAlign = "center";
+  if("letterSpacing" in ctx) ctx.letterSpacing = "14px";
+  ctx.fillText("交通費精算書", PDF_PX_W / 2, y + 20);
+  if("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+  y += 110;
+
+  [["名前", name || "未設定"], ["期間", periodText], ["合計金額", totalText]].forEach(function(item){
+    ctx.textAlign = "left";
+    font(24, false);
+    ctx.fillStyle = "#444444";
+    ctx.fillText(item[0], M, y);
+    font(item[0] === "合計金額" ? 32 : 28, true);
+    ctx.fillStyle = "#000000";
+    ctx.fillText(item[1], M + 170, y);
+    ctx.strokeStyle = "#888888";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(M, y + 28);
+    ctx.lineTo(PDF_PX_W - M, y + 28);
+    ctx.stroke();
+    y += 66;
+  });
+  y += 40;
+
+  drawRow(cols.map(function(c){ return c.label; }), { bold: true, isHeader: true });
+  if(rows.length === 0){
+    drawRow(["該当する記録がありません", null, null, "", ""], { span: true });
+  }
+  rows.forEach(function(r){
+    drawRow([
+      formatDateShort(r.date),
+      r.from + "→" + r.to,
+      r.tripType === "round" ? "往復" : "片道",
+      yen(recordTotal(r)),
+      r.purpose || ""
+    ], {});
+  });
+  drawRow(["合計", null, null, totalText, ""], { bold: true, span: true });
+
+  pages.forEach(function(canvas, i){
+    var c = canvas.getContext("2d");
+    c.font = "400 20px " + PDF_FONT;
+    c.fillStyle = "#666666";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText((i + 1) + " / " + pages.length, PDF_PX_W / 2, PDF_PX_H - M / 2);
+  });
+  return pages;
+}
+
+// Minimal PDF 1.4 writer: one full-page JPEG per page, so Japanese text renders with the device's own fonts.
+function buildPdfFromCanvases(canvases){
+  var PT_W = 595.28, PT_H = 841.89;
+  var enc = new TextEncoder();
+  var chunks = [], offsets = [], offset = 0;
+  function push(data){
+    var bytes = typeof data === "string" ? enc.encode(data) : data;
+    chunks.push(bytes);
+    offset += bytes.length;
+  }
+  function jpegBytes(canvas){
+    var bin = atob(canvas.toDataURL("image/jpeg", 0.9).split(",")[1]);
+    var out = new Uint8Array(bin.length);
+    for(var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+
+  var n = canvases.length;
+  var objCount = 2 + n * 3;
+  push("%PDF-1.4\n%âãÏÓ\n");
+
+  offsets[1] = offset;
+  push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  var kids = [];
+  for(var k = 0; k < n; k++) kids.push((3 + k * 3) + " 0 R");
+  offsets[2] = offset;
+  push("2 0 obj\n<< /Type /Pages /Kids [" + kids.join(" ") + "] /Count " + n + " >>\nendobj\n");
+
+  canvases.forEach(function(canvas, i){
+    var pageNo = 3 + i * 3, contentNo = pageNo + 1, imageNo = pageNo + 2;
+    var content = "q\n" + PT_W + " 0 0 " + PT_H + " 0 0 cm\n/Im0 Do\nQ\n";
+    var img = jpegBytes(canvas);
+
+    offsets[pageNo] = offset;
+    push(pageNo + " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + PT_W + " " + PT_H + "]" +
+      " /Resources << /XObject << /Im0 " + imageNo + " 0 R >> >> /Contents " + contentNo + " 0 R >>\nendobj\n");
+    offsets[contentNo] = offset;
+    push(contentNo + " 0 obj\n<< /Length " + content.length + " >>\nstream\n" + content + "endstream\nendobj\n");
+    offsets[imageNo] = offset;
+    push(imageNo + " 0 obj\n<< /Type /XObject /Subtype /Image /Width " + canvas.width + " /Height " + canvas.height +
+      " /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length " + img.length + " >>\nstream\n");
+    push(img);
+    push("\nendstream\nendobj\n");
+  });
+
+  var xrefAt = offset;
+  var xref = "xref\n0 " + (objCount + 1) + "\n0000000000 65535 f \n";
+  for(var o = 1; o <= objCount; o++) xref += String(offsets[o]).padStart(10, "0") + " 00000 n \n";
+  push(xref + "trailer\n<< /Size " + (objCount + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefAt + "\n%%EOF\n");
+  return new Blob(chunks, { type: "application/pdf" });
+}
+
 els["btn-exp-print"].addEventListener("click", function(){
   if(!exportRows) return;
-  window.print();
+  var filename = "交通費精算書_" + els["exp-start"].value + "_" + els["exp-end"].value + ".pdf";
+  var file;
+  try{
+    var pages = renderPdfPages(exportRows, settings.name || "", els["exp-doc-period"].textContent, els["exp-total"].textContent);
+    file = new File([buildPdfFromCanvases(pages)], filename, { type: "application/pdf" });
+  }catch(e){
+    setExportStatus("PDFを作成できませんでした", "error");
+    return;
+  }
+
+  if(navigator.canShare && navigator.canShare({ files: [file] })){
+    setExportStatus("共有メニューの「ファイルに保存」でPDFを保存できます", "");
+    navigator.share({ files: [file], title: "交通費精算書" })
+      .then(function(){ setExportStatus("PDFを書き出しました", "ok"); })
+      .catch(function(err){
+        if(err && err.name === "AbortError"){
+          setExportStatus("PDFの書き出しをキャンセルしました", "");
+        }else{
+          downloadBlob(file, filename);
+          setExportStatus("PDFを保存しました", "ok");
+        }
+      });
+    return;
+  }
+  downloadBlob(file, filename);
+  setExportStatus("PDFを保存しました", "ok");
 });
 
 els["btn-exp-copy"].addEventListener("click", function(){
@@ -1060,68 +1261,6 @@ els["btn-exp-share"].addEventListener("click", function(){
   }else{
     setExportStatus("この端末は共有に対応していません。CSV保存かコピーをご利用ください。", "error");
   }
-});
-
-function setBackupStatus(msg, kind){
-  var el = els["backup-status"];
-  el.textContent = msg;
-  el.className = kind || "";
-}
-els["btn-backup-export"].addEventListener("click", function(){
-  try{
-    var data = { records: records, shortcuts: shortcuts, settings: settings, exportedAt: new Date().toISOString() };
-    var blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "交通費メモ_バックアップ_" + todayStr() + ".json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
-    setBackupStatus("バックアップを書き出しました", "ok");
-  }catch(e){
-    setBackupStatus("書き出しに失敗しました", "error");
-  }
-});
-els["btn-backup-import-trigger"].addEventListener("click", function(){
-  els["backup-import-input"].click();
-});
-els["backup-import-input"].addEventListener("change", function(e){
-  var file = e.target.files[0];
-  if(!file) return;
-  var reader = new FileReader();
-  reader.onload = function(){
-    try{
-      var data = JSON.parse(reader.result);
-      if(!data || !Array.isArray(data.records)){
-        throw new Error("invalid");
-      }
-      askConfirm("バックアップ（" + data.records.length + "件）を読み込みます。現在のデータは上書きされます。", "上書きして読み込む", true).then(function(ok){
-        if(!ok){
-          setBackupStatus("読み込みをキャンセルしました", "");
-          return;
-        }
-        records = data.records;
-        shortcuts = Array.isArray(data.shortcuts) ? data.shortcuts : [];
-        saveJSON(KEYS.records, records);
-        saveJSON(KEYS.shortcuts, shortcuts);
-        if(data.settings && typeof data.settings === "object"){
-          settings = data.settings;
-          saveJSON(KEYS.settings, settings);
-        }
-        refreshDatalists();
-        renderShortcuts();
-        renderHistory();
-        updateDuplicateButtonVisibility();
-        setBackupStatus("バックアップを読み込みました", "ok");
-      });
-    }catch(err){
-      setBackupStatus("ファイルの形式が正しくありません", "error");
-    }
-  };
-  reader.readAsText(file);
-  els["backup-import-input"].value = "";
 });
 
 function switchTab(name){
