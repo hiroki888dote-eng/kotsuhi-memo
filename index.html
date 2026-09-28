@@ -97,6 +97,20 @@ input[type="date"]::-webkit-date-and-time-value{text-align:left;}
 .total-display{background:var(--bg);border-radius:10px;padding:10px 12px;font-size:14.5px;color:var(--text-secondary);}
 .total-display strong{color:var(--text);font-size:16px;}
 
+.ac-wrap{position:relative;}
+.ac-list{
+  position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;
+  margin:0;padding:0;list-style:none;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+.ac-list.up{top:auto;bottom:calc(100% + 4px);}
+.ac-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;font-size:15px;color:var(--text);cursor:pointer;}
+.ac-item + .ac-item{border-top:1px solid var(--border);}
+.ac-item.active,.ac-item:active{background:var(--bg);}
+.ac-item mark{background:none;color:var(--accent);font-weight:700;}
+.ac-count{flex-shrink:0;font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
+@media (hover:hover){ .ac-item:hover{background:var(--bg);} }
 .chips{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{padding:8px 12px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:13px;color:var(--text);}
 .section-title{font-size:13px;color:var(--text-secondary);margin:0 0 8px;}
@@ -228,13 +242,17 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         </div>
         <div class="field">
           <label for="f-from">出発地</label>
-          <input type="text" id="f-from" list="fromList" autocomplete="off">
-          <datalist id="fromList"></datalist>
+          <div class="ac-wrap">
+            <input type="text" id="f-from" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-from">
+            <ul class="ac-list" id="ac-f-from" role="listbox" hidden></ul>
+          </div>
         </div>
         <div class="field">
           <label for="f-to">到着地</label>
-          <input type="text" id="f-to" list="toList" autocomplete="off">
-          <datalist id="toList"></datalist>
+          <div class="ac-wrap">
+            <input type="text" id="f-to" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-to">
+            <ul class="ac-list" id="ac-f-to" role="listbox" hidden></ul>
+          </div>
         </div>
         <div class="field">
           <label>往復・片道</label>
@@ -250,8 +268,10 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         <div class="total-display" id="f-total">合計 ¥0</div>
         <div class="field" style="margin-top:14px;">
           <label for="f-purpose">目的・訪問先</label>
-          <input type="text" id="f-purpose" list="purposeList" autocomplete="off">
-          <datalist id="purposeList"></datalist>
+          <div class="ac-wrap">
+            <input type="text" id="f-purpose" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-purpose">
+            <ul class="ac-list" id="ac-f-purpose" role="listbox" hidden></ul>
+          </div>
         </div>
         <label class="checkbox-row">
           <input type="checkbox" id="f-save-shortcut">
@@ -466,7 +486,7 @@ var els = {};
 [
   "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut",
   "btn-duplicate-last","btn-cancel-edit","btn-save","draft-notice",
-  "shortcuts-card","shortcuts-list","fromList","toList","purposeList",
+  "shortcuts-card","shortcuts-list",
   "hist-all-toggle","hist-month-nav","hist-prev","hist-next","hist-month-label",
   "hist-search","hist-total","hist-list",
   "exp-start","exp-end","btn-exp-generate","exp-preview","exp-table-body","exp-total",
@@ -559,25 +579,128 @@ function loadDraftIfAny(){
   els["draft-notice"].hidden = false;
 }
 
-function refreshDatalists(){
-  function uniqueValues(field, limit){
-    var seen = {};
-    var out = [];
-    for(var i = records.length - 1; i >= 0 && out.length < limit; i--){
-      var v = records[i][field];
-      if(v && !seen[v]){ seen[v] = true; out.push(v); }
-    }
-    return out;
-  }
-  function fill(listEl, values){
-    listEl.innerHTML = values.map(function(v){
-      return "<option value=\"" + escapeHtml(v) + "\">";
-    }).join("");
-  }
-  fill(els.fromList, uniqueValues("from", 20));
-  fill(els.toList, uniqueValues("to", 20));
-  fill(els.purposeList, uniqueValues("purpose", 20));
+var AC_MAX = 8;
+
+// kind "place" pools from and to together, so a return trip can reuse either end.
+function suggestionPool(kind){
+  var map = {};
+  records.forEach(function(r){
+    var values = kind === "place" ? [r.from, r.to] : [r.purpose];
+    var stamp = (r.date || "") + "_" + String(r.createdAt || 0).padStart(15, "0");
+    values.forEach(function(v){
+      v = (v || "").trim();
+      if(!v) return;
+      var m = map[v] || (map[v] = { value: v, count: 0, last: "" });
+      m.count++;
+      if(stamp > m.last) m.last = stamp;
+    });
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a, b){
+    return b.count - a.count || (a.last < b.last ? 1 : a.last > b.last ? -1 : 0);
+  });
 }
+
+function highlightMatch(value, q){
+  var i = q ? value.toLowerCase().indexOf(q) : -1;
+  if(i < 0) return escapeHtml(value);
+  return escapeHtml(value.slice(0, i)) + "<mark>" + escapeHtml(value.slice(i, i + q.length)) + "</mark>" +
+    escapeHtml(value.slice(i + q.length));
+}
+
+function setupAutocomplete(input, kind, opts){
+  var list = document.getElementById("ac-" + input.id);
+  var items = [], active = -1, closeTimer = null;
+
+  function close(){
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    input.removeAttribute("aria-activedescendant");
+    active = -1;
+  }
+  function position(){
+    var vv = window.visualViewport;
+    var viewTop = vv ? vv.offsetTop : 0;
+    var viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    var headerBottom = document.querySelector("header").getBoundingClientRect().bottom;
+    var r = input.getBoundingClientRect();
+    var below = viewBottom - r.bottom - 12;
+    var above = r.top - Math.max(viewTop, headerBottom) - 12;
+    var up = below < 180 && above > below;
+    list.classList.toggle("up", up);
+    list.style.maxHeight = Math.max(120, Math.min(300, up ? above : below)) + "px";
+  }
+  function render(){
+    var q = input.value.trim().toLowerCase();
+    var exclude = opts.exclude ? opts.exclude().trim().toLowerCase() : "";
+    items = suggestionPool(kind).filter(function(p){
+      var v = p.value.toLowerCase();
+      return v !== q && v !== exclude && (!q || v.indexOf(q) !== -1);
+    });
+    if(q){
+      items.sort(function(a, b){
+        return (b.value.toLowerCase().indexOf(q) === 0) - (a.value.toLowerCase().indexOf(q) === 0);
+      });
+    }
+    items = items.slice(0, AC_MAX);
+    active = -1;
+    if(items.length === 0){ close(); return; }
+    list.innerHTML = items.map(function(p, i){
+      return "<li class=\"ac-item\" role=\"option\" id=\"" + list.id + "-" + i + "\" data-i=\"" + i + "\">" +
+        "<span>" + highlightMatch(p.value, q) + "</span><span class=\"ac-count\">" + p.count + "回</span></li>";
+    }).join("");
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    position();
+  }
+  function setActive(i){
+    var nodes = list.querySelectorAll(".ac-item");
+    if(!nodes.length) return;
+    active = (i + nodes.length) % nodes.length;
+    nodes.forEach(function(n, idx){ n.classList.toggle("active", idx === active); });
+    input.setAttribute("aria-activedescendant", nodes[active].id);
+    nodes[active].scrollIntoView({ block: "nearest" });
+  }
+  function pick(i){
+    var p = items[i];
+    if(!p) return;
+    input.value = p.value;
+    saveDraft();
+    close();
+    if(opts.onPick) opts.onPick();
+  }
+
+  input.addEventListener("focus", function(){ clearTimeout(closeTimer); render(); });
+  input.addEventListener("input", render);
+  // Delay so a tap on a suggestion still lands if the tap itself blurs the input.
+  input.addEventListener("blur", function(){ closeTimer = setTimeout(close, 200); });
+  input.addEventListener("keydown", function(e){
+    if(list.hidden) return;
+    if(e.key === "ArrowDown"){ e.preventDefault(); setActive(active + 1); }
+    else if(e.key === "ArrowUp"){ e.preventDefault(); setActive(active - 1); }
+    else if(e.key === "Enter" && active >= 0){ e.preventDefault(); pick(active); }
+    else if(e.key === "Escape"){ close(); }
+  });
+  list.addEventListener("mousedown", function(e){ e.preventDefault(); });
+  list.addEventListener("click", function(e){
+    var li = e.target.closest(".ac-item");
+    if(li) pick(parseInt(li.dataset.i, 10));
+  });
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize", function(){ if(!list.hidden) position(); });
+  }
+}
+
+setupAutocomplete(els["f-from"], "place", {
+  exclude: function(){ return els["f-to"].value; },
+  onPick: function(){ if(!els["f-to"].value) els["f-to"].focus(); }
+});
+setupAutocomplete(els["f-to"], "place", {
+  exclude: function(){ return els["f-from"].value; },
+  onPick: function(){ els["f-to"].blur(); }
+});
+setupAutocomplete(els["f-purpose"], "purpose", {
+  onPick: function(){ els["f-purpose"].blur(); }
+});
 
 function updateDuplicateButtonVisibility(){
   els["btn-duplicate-last"].hidden = records.length === 0;
@@ -721,7 +844,6 @@ function commitSave(e){
   clearDraft();
   els["draft-notice"].hidden = true;
   resetForm();
-  refreshDatalists();
   renderShortcuts();
   renderHistory();
   updateDuplicateButtonVisibility();
@@ -892,7 +1014,6 @@ els["hist-list"].addEventListener("click", function(e){
       saveJSON(KEYS.records, records);
       swipe.openId = null;
       renderHistory();
-      refreshDatalists();
       updateDuplicateButtonVisibility();
       showToast("削除しました");
     });
@@ -1307,7 +1428,6 @@ function init(){
 
   resetForm();
   loadDraftIfAny();
-  refreshDatalists();
   renderShortcuts();
   updateDuplicateButtonVisibility();
 
