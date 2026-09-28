@@ -105,11 +105,10 @@ input[type="date"]::-webkit-date-and-time-value{text-align:left;}
   box-shadow:0 8px 24px rgba(0,0,0,.18);
 }
 .ac-list.up{top:auto;bottom:calc(100% + 4px);}
-.ac-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 12px;font-size:15px;color:var(--text);cursor:pointer;}
+.ac-item{padding:11px 12px;font-size:15px;color:var(--text);cursor:pointer;}
 .ac-item + .ac-item{border-top:1px solid var(--border);}
 .ac-item.active,.ac-item:active{background:var(--bg);}
 .ac-item mark{background:none;color:var(--accent);font-weight:700;}
-.ac-count{flex-shrink:0;font-size:11.5px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
 @media (hover:hover){ .ac-item:hover{background:var(--bg);} }
 .chips{display:flex;flex-wrap:wrap;gap:8px;}
 .chip{padding:8px 12px;border-radius:999px;background:var(--bg);border:1px solid var(--border);font-size:13px;color:var(--text);}
@@ -646,7 +645,7 @@ function setupAutocomplete(input, kind, opts){
     if(items.length === 0){ close(); return; }
     list.innerHTML = items.map(function(p, i){
       return "<li class=\"ac-item\" role=\"option\" id=\"" + list.id + "-" + i + "\" data-i=\"" + i + "\">" +
-        "<span>" + highlightMatch(p.value, q) + "</span><span class=\"ac-count\">" + p.count + "回</span></li>";
+        highlightMatch(p.value, q) + "</li>";
     }).join("");
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
