@@ -143,13 +143,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .history-row .row-top{display:flex;justify-content:space-between;align-items:baseline;}
 .history-row .route{font-size:14.5px;font-weight:600;}
 .history-row .amount{font-size:15px;font-weight:700;}
-.history-row .row-bottom{display:flex;justify-content:space-between;margin-top:3px;}
+.history-row .row-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:4px;}
 .history-row .meta{font-size:12px;color:var(--text-secondary);}
-.badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg);color:var(--text-secondary);margin-right:6px;}
+.history-row .meta-left{display:flex;gap:10px;min-width:0;}
+.history-row .meta-left .date{flex-shrink:0;}
+.history-row .meta-left .purpose{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.badge{flex-shrink:0;display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg);color:var(--text-secondary);}
 .history-delete-btn{
   position:absolute;top:0;right:0;bottom:0;width:88px;background:var(--danger);color:#fff;
-  border:none;font-size:13px;font-weight:700;
+  border:none;font-size:13px;font-weight:700;visibility:hidden;
 }
+.history-row-wrap.reveal .history-delete-btn{visibility:visible;}
 .empty-state{text-align:center;color:var(--text-secondary);font-size:13.5px;padding:40px 10px;}
 
 table.export-table{width:100%;border-collapse:collapse;font-size:12.5px;}
@@ -893,8 +897,9 @@ function renderHistoryRow(r){
         "<span class=\"amount\">" + yen(recordTotal(r)) + "</span>" +
       "</div>" +
       "<div class=\"row-bottom\">" +
-        "<span class=\"meta\"><span class=\"badge\">" + badge + "</span>" + formatDateShort(r.date) + "</span>" +
-        "<span class=\"meta\">" + escapeHtml(r.purpose || "") + "</span>" +
+        "<span class=\"meta meta-left\"><span class=\"date\">" + formatDateShort(r.date) + "</span>" +
+          (r.purpose ? "<span class=\"purpose\">" + escapeHtml(r.purpose) + "</span>" : "") + "</span>" +
+        "<span class=\"badge\">" + badge + "</span>" +
       "</div>" +
     "</div>" +
   "</div>";
@@ -962,6 +967,7 @@ els["hist-list"].addEventListener("pointerdown", function(e){
   swipe.active = true;
   swipe.rowEl = row;
   swipe.wrapEl = wrap;
+  wrap.classList.add("reveal");
   swipe.startX = e.clientX;
   swipe.dx = wrap.dataset.id === swipe.openId ? -88 : 0;
   row.style.transition = "none";
@@ -985,7 +991,14 @@ function endSwipe(){
   }else{
     swipe.rowEl.style.transform = "translateX(0)";
     if(swipe.openId === swipe.wrapEl.dataset.id) swipe.openId = null;
+    hideDeleteAfterClose(swipe.wrapEl);
   }
+}
+// The red button sits under the row; keep it hidden when closed so it can't bleed through the rounded edges.
+function hideDeleteAfterClose(wrap){
+  setTimeout(function(){
+    if(swipe.openId !== wrap.dataset.id && !(swipe.active && swipe.wrapEl === wrap)) wrap.classList.remove("reveal");
+  }, 200);
 }
 ["pointerup","pointercancel"].forEach(function(evt){
   els["hist-list"].addEventListener(evt, endSwipe);
@@ -997,6 +1010,7 @@ function closeOpenSwipe(){
     var row = wrap.querySelector(".history-row");
     row.style.transition = "transform .18s ease";
     row.style.transform = "translateX(0)";
+    hideDeleteAfterClose(wrap);
   }
   swipe.openId = null;
 }
