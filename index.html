@@ -687,18 +687,23 @@ function setupAutocomplete(input, kind, opts){
       var v = p.value.toLowerCase();
       return v !== q && v !== exclude && (!q || v.indexOf(q) !== -1);
     });
-    var anchor = opts.pairWith ? opts.pairWith().trim() : "";
-    var fwd = {}, rev = {};
-    if(anchor){
+    // opts.tiers() gives record pickers in priority order; a value ranks by the first tier it appears in,
+    // then by its count in each tier. Array.sort is stable, so ties keep the pool's use-count order.
+    var tierMaps = (opts.tiers ? opts.tiers() : []).map(function(pickValue){
+      var m = {};
       records.forEach(function(r){
-        if(r.from === anchor && r.to) fwd[r.to] = (fwd[r.to] || 0) + 1;
-        if(r.to === anchor && r.from) rev[r.from] = (rev[r.from] || 0) + 1;
+        var v = pickValue(r);
+        if(v) m[v] = (m[v] || 0) + 1;
       });
-    }
-    // Places already travelled from the anchor first, then its return trips, then the rest; Array.sort is stable so ties keep use-count order.
+      return m;
+    });
     function rank(p){
-      var v = p.value, f = fwd[v] || 0, b = rev[v] || 0;
-      return [f ? 0 : (b ? 1 : 2), -f, -b, q && v.toLowerCase().indexOf(q) !== 0 ? 1 : 0];
+      var v = p.value, tier = tierMaps.length;
+      for(var t = 0; t < tierMaps.length; t++){ if(tierMaps[t][v]){ tier = t; break; } }
+      var key = [tier];
+      tierMaps.forEach(function(m){ key.push(-(m[v] || 0)); });
+      key.push(q && v.toLowerCase().indexOf(q) !== 0 ? 1 : 0);
+      return key;
     }
     items.sort(function(a, b){
       var ra = rank(a), rb = rank(b);
@@ -761,10 +766,27 @@ setupAutocomplete(els["f-from"], "place", {
 });
 setupAutocomplete(els["f-to"], "place", {
   exclude: function(){ return els["f-from"].value; },
-  pairWith: function(){ return els["f-from"].value; },
+  tiers: function(){
+    var from = els["f-from"].value.trim();
+    if(!from) return [];
+    return [
+      function(r){ return r.from === from ? r.to : null; },
+      function(r){ return r.to === from ? r.from : null; }
+    ];
+  },
   onPick: function(){ els["f-to"].blur(); }
 });
 setupAutocomplete(els["f-purpose"], "purpose", {
+  tiers: function(){
+    var from = els["f-from"].value.trim(), to = els["f-to"].value.trim(), tiers = [];
+    function purposeOf(r){ return (r.purpose || "").trim() || null; }
+    if(from && to){
+      tiers.push(function(r){ return r.from === from && r.to === to ? purposeOf(r) : null; });
+      tiers.push(function(r){ return r.from === to && r.to === from ? purposeOf(r) : null; });
+    }
+    if(to) tiers.push(function(r){ return r.to === to ? purposeOf(r) : null; });
+    return tiers;
+  },
   onPick: function(){ els["f-purpose"].blur(); }
 });
 
