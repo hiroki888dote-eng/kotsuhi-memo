@@ -148,6 +148,13 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline
 .history-row .meta-left{display:flex;gap:10px;min-width:0;}
 .history-row .meta-left .date{flex-shrink:0;}
 .history-row .meta-left .purpose{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.history-row .meta-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.history-row .fare-note{font-size:12px;color:var(--text-secondary);font-variant-numeric:tabular-nums;}
+.fare-hints{display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+.fare-hints-label{font-size:12px;color:var(--text-secondary);}
+.fare-hint-list{display:flex;flex-wrap:wrap;gap:6px;}
+.fare-chip{padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-variant-numeric:tabular-nums;}
+.fare-chip.selected{border-color:var(--accent);color:var(--accent);font-weight:700;}
 .badge{flex-shrink:0;display:inline-block;font-size:11px;padding:1px 6px;border-radius:6px;background:var(--bg);color:var(--text-secondary);}
 .history-delete-btn{
   position:absolute;top:0;right:0;bottom:0;width:88px;background:var(--danger);color:#fff;
@@ -267,6 +274,10 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         <div class="field">
           <label for="f-fare">片道料金（円）</label>
           <input type="number" id="f-fare" inputmode="numeric" pattern="[0-9]*" min="0" step="1">
+          <div class="fare-hints" id="f-fare-hints" hidden>
+            <span class="fare-hints-label">過去の料金</span>
+            <span class="fare-hint-list" id="f-fare-hint-list"></span>
+          </div>
         </div>
         <div class="total-display" id="f-total">合計 ¥0</div>
         <div class="field" style="margin-top:14px;">
@@ -487,7 +498,7 @@ function showToast(msg){
 
 var els = {};
 [
-  "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut",
+  "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut","f-fare-hints","f-fare-hint-list",
   "btn-duplicate-last","btn-cancel-edit","btn-save","draft-notice",
   "shortcuts-card","shortcuts-list",
   "hist-all-toggle","hist-month-nav","hist-prev","hist-next","hist-month-label",
@@ -536,10 +547,47 @@ function updateTotalDisplay(){
   els["f-total"].innerHTML = currentTripType === "round"
     ? "合計 <strong>" + yen(total) + "</strong>（片道 " + yen(fare) + "）"
     : "合計 <strong>" + yen(total) + "</strong>";
+  updateFareHints();
 }
 els["f-fare"].addEventListener("input", function(){ updateTotalDisplay(); saveDraft(); });
 ["f-date","f-from","f-to","f-purpose"].forEach(function(id){
   els[id].addEventListener("input", saveDraft);
+});
+["f-from","f-to"].forEach(function(id){
+  els[id].addEventListener("input", updateFareHints);
+});
+
+// Either direction counts as the same route; newest first so a fare revision shows up front.
+function fareCandidates(from, to){
+  if(!from || !to) return [];
+  var seen = {}, out = [];
+  records.slice().sort(function(a, b){
+    if(a.date !== b.date) return a.date < b.date ? 1 : -1;
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  }).forEach(function(r){
+    if(r.id === editingId) return;
+    var same = (r.from === from && r.to === to) || (r.from === to && r.to === from);
+    if(!same || seen[r.fare]) return;
+    seen[r.fare] = true;
+    out.push(r.fare);
+  });
+  return out.slice(0, 3);
+}
+function updateFareHints(){
+  var list = fareCandidates(els["f-from"].value.trim(), els["f-to"].value.trim());
+  if(list.length === 0){ els["f-fare-hints"].hidden = true; return; }
+  var current = parseInt(els["f-fare"].value, 10);
+  els["f-fare-hint-list"].innerHTML = list.map(function(f){
+    return "<button type=\"button\" class=\"fare-chip" + (f === current ? " selected" : "") + "\" data-fare=\"" + f + "\">" + yen(f) + "</button>";
+  }).join("");
+  els["f-fare-hints"].hidden = false;
+}
+els["f-fare-hints"].addEventListener("click", function(e){
+  var chip = e.target.closest(".fare-chip");
+  if(!chip) return;
+  els["f-fare"].value = chip.dataset.fare;
+  updateTotalDisplay();
+  saveDraft();
 });
 
 function resetForm(){
@@ -639,11 +687,24 @@ function setupAutocomplete(input, kind, opts){
       var v = p.value.toLowerCase();
       return v !== q && v !== exclude && (!q || v.indexOf(q) !== -1);
     });
-    if(q){
-      items.sort(function(a, b){
-        return (b.value.toLowerCase().indexOf(q) === 0) - (a.value.toLowerCase().indexOf(q) === 0);
+    var anchor = opts.pairWith ? opts.pairWith().trim() : "";
+    var fwd = {}, rev = {};
+    if(anchor){
+      records.forEach(function(r){
+        if(r.from === anchor && r.to) fwd[r.to] = (fwd[r.to] || 0) + 1;
+        if(r.to === anchor && r.from) rev[r.from] = (rev[r.from] || 0) + 1;
       });
     }
+    // Places already travelled from the anchor first, then its return trips, then the rest; Array.sort is stable so ties keep use-count order.
+    function rank(p){
+      var v = p.value, f = fwd[v] || 0, b = rev[v] || 0;
+      return [f ? 0 : (b ? 1 : 2), -f, -b, q && v.toLowerCase().indexOf(q) !== 0 ? 1 : 0];
+    }
+    items.sort(function(a, b){
+      var ra = rank(a), rb = rank(b);
+      for(var k = 0; k < ra.length; k++){ if(ra[k] !== rb[k]) return ra[k] - rb[k]; }
+      return 0;
+    });
     items = items.slice(0, AC_MAX);
     active = -1;
     if(items.length === 0){ close(); return; }
@@ -668,6 +729,7 @@ function setupAutocomplete(input, kind, opts){
     if(!p) return;
     input.value = p.value;
     saveDraft();
+    updateFareHints();
     close();
     if(opts.onPick) opts.onPick();
   }
@@ -699,6 +761,7 @@ setupAutocomplete(els["f-from"], "place", {
 });
 setupAutocomplete(els["f-to"], "place", {
   exclude: function(){ return els["f-from"].value; },
+  pairWith: function(){ return els["f-from"].value; },
   onPick: function(){ els["f-to"].blur(); }
 });
 setupAutocomplete(els["f-purpose"], "purpose", {
@@ -899,7 +962,10 @@ function renderHistoryRow(r){
       "<div class=\"row-bottom\">" +
         "<span class=\"meta meta-left\"><span class=\"date\">" + formatDateShort(r.date) + "</span>" +
           (r.purpose ? "<span class=\"purpose\">" + escapeHtml(r.purpose) + "</span>" : "") + "</span>" +
-        "<span class=\"badge\">" + badge + "</span>" +
+        "<span class=\"meta-right\">" +
+          (r.tripType === "round" ? "<span class=\"fare-note\">片道 " + yen(r.fare) + "</span>" : "") +
+          "<span class=\"badge\">" + badge + "</span>" +
+        "</span>" +
       "</div>" +
     "</div>" +
   "</div>";
