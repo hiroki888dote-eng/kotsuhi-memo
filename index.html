@@ -81,6 +81,8 @@ section[hidden]{display:none;}
 .card{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:14px;box-shadow:var(--shadow);margin-bottom:14px;}
 .field{margin-bottom:14px;display:flex;flex-direction:column;gap:6px;}
 .field label{font-size:12.5px;color:var(--text-secondary);}
+.field-head{display:flex;justify-content:space-between;align-items:center;}
+.link-btn{background:none;border:none;padding:4px 0 4px 12px;font-size:13px;color:var(--accent);}
 input[type="text"],input[type="date"],input[type="number"]{
   font-size:16px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
   background:var(--bg);color:var(--text);width:100%;min-width:0;max-width:100%;
@@ -247,7 +249,10 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
 
       <div class="card">
         <div class="field">
-          <label for="f-date">日付</label>
+          <div class="field-head">
+            <label for="f-date">日付</label>
+            <button type="button" id="btn-clear-form" class="link-btn">入力をクリア</button>
+          </div>
           <input type="date" id="f-date">
         </div>
         <div class="field">
@@ -499,7 +504,7 @@ function showToast(msg){
 var els = {};
 [
   "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut","f-fare-hints","f-fare-hint-list",
-  "btn-duplicate-last","btn-cancel-edit","btn-save","draft-notice",
+  "btn-duplicate-last","btn-cancel-edit","btn-save","btn-clear-form","draft-notice",
   "shortcuts-card","shortcuts-list",
   "hist-all-toggle","hist-month-nav","hist-prev","hist-next","hist-month-label",
   "hist-search","hist-total","hist-list",
@@ -601,6 +606,7 @@ function resetForm(){
   editingId = null;
   els["btn-save"].textContent = "保存する";
   els["btn-cancel-edit"].hidden = true;
+  els["btn-clear-form"].hidden = false;
   updateTotalDisplay();
 }
 
@@ -862,12 +868,20 @@ els["btn-duplicate-last"].addEventListener("click", function(){
   editingId = null;
   els["btn-save"].textContent = "保存する";
   els["btn-cancel-edit"].hidden = true;
+  els["btn-clear-form"].hidden = false;
   saveDraft();
   showToast("前回の内容を入力欄に反映しました");
 });
 
 els["btn-cancel-edit"].addEventListener("click", function(){
   resetForm();
+});
+
+els["btn-clear-form"].addEventListener("click", function(){
+  resetForm();
+  clearDraft();
+  els["draft-notice"].hidden = true;
+  showToast("入力内容をクリアしました");
 });
 
 els["btn-save"].addEventListener("click", function(){
@@ -949,6 +963,7 @@ function loadRecordIntoForm(r){
   editingId = r.id;
   els["btn-save"].textContent = "更新する";
   els["btn-cancel-edit"].hidden = false;
+  els["btn-clear-form"].hidden = true;
   switchTab("input");
 }
 
