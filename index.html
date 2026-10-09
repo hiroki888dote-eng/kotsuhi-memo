@@ -18,6 +18,7 @@
   --text:#1c1f26;
   --text-secondary:#6b7280;
   --accent:#2f6fed;
+  --accent-soft:#eaf1fe;
   --accent-contrast:#ffffff;
   --border:#e2e5ea;
   --danger:#e0483e;
@@ -29,6 +30,7 @@
     color-scheme:dark;
     --bg:#101216;
     --card-bg:#1b1e24;
+    --accent-soft:#1a2740;
     --text:#f2f3f5;
     --text-secondary:#9aa1ac;
     --border:#2a2e37;
@@ -39,6 +41,7 @@
   color-scheme:dark;
   --bg:#101216;
   --card-bg:#1b1e24;
+  --accent-soft:#1a2740;
   --text:#f2f3f5;
   --text-secondary:#9aa1ac;
   --border:#2a2e37;
@@ -82,6 +85,10 @@ section[hidden]{display:none;}
 .field{margin-bottom:14px;display:flex;flex-direction:column;gap:6px;}
 .field label{font-size:12.5px;color:var(--text-secondary);}
 .field-head{display:flex;justify-content:space-between;align-items:center;}
+.edit-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0 0 14px;padding:10px 12px;border-radius:10px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent);}
+.edit-banner-label{font-size:14px;font-weight:700;}
+.edit-banner-text{font-size:13px;color:var(--text);}
+.form-actions{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
 .link-btn{background:none;border:none;padding:4px 0 4px 12px;font-size:13px;color:var(--accent);}
 input[type="text"],input[type="date"],input[type="number"]{
   font-size:16px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;
@@ -248,6 +255,10 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       </div>
 
       <div class="card">
+        <div class="edit-banner" id="edit-banner" hidden>
+          <span class="edit-banner-label">✎ 記録を修正中</span>
+          <span class="edit-banner-text" id="edit-banner-text"></span>
+        </div>
         <div class="field">
           <div class="field-head">
             <label for="f-date">日付</label>
@@ -297,14 +308,11 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
           この経路をショートカットに保存する
         </label>
 
-        <div class="btn-row" style="margin-top:14px;">
-          <button id="btn-duplicate-last" class="btn-secondary" hidden>前回と同じ内容で追加</button>
-        </div>
-        <div class="btn-row" style="margin-top:10px;">
-          <button id="btn-cancel-edit" class="btn-secondary" hidden>編集をやめる</button>
-        </div>
-        <div style="margin-top:10px;">
+        <div class="form-actions">
+          <button id="btn-duplicate-last" class="btn-secondary" hidden>前回の内容を呼び出す</button>
           <button id="btn-save" class="btn-primary">保存する</button>
+          <button id="btn-save-as-new" class="btn-secondary" hidden>この内容で新しく追加</button>
+          <button id="btn-cancel-edit" class="btn-secondary" hidden>修正をやめる</button>
         </div>
       </div>
     </section>
@@ -387,7 +395,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
     <div class="modal-card">
       <h2>使い方</h2>
       <h3>基本の流れ</h3>
-      <p>「入力」タブで交通費を記録 → 「履歴」タブで確認・修正 → 「書き出し」タブで申請用データを作成、の順で使います。記録をタップすると内容を編集できます。</p>
+      <p>「入力」タブで交通費を記録 → 「履歴」タブで確認・修正 → 「書き出し」タブで申請用データを作成、の順で使います。履歴の記録をタップすると、その記録を修正したり、同じ内容を元に新しく追加したりできます。</p>
       <p>右上の「名前設定」で名前を登録しておくと、書き出す交通費精算書（PDF）に毎回表示されます。</p>
       <h3>ホーム画面への追加</h3>
       <p>iPhone（Safari）：画面下の共有ボタン → 「ホーム画面に追加」</p>
@@ -504,7 +512,8 @@ function showToast(msg){
 var els = {};
 [
   "f-date","f-from","f-to","f-fare","f-total","f-purpose","f-save-shortcut","f-fare-hints","f-fare-hint-list",
-  "btn-duplicate-last","btn-cancel-edit","btn-save","btn-clear-form","draft-notice",
+  "btn-duplicate-last","btn-cancel-edit","btn-save","btn-save-as-new","btn-clear-form","draft-notice",
+  "edit-banner","edit-banner-text",
   "shortcuts-card","shortcuts-list",
   "hist-all-toggle","hist-month-nav","hist-prev","hist-next","hist-month-label",
   "hist-search","hist-total","hist-list",
@@ -603,11 +612,19 @@ function resetForm(){
   setTripType("round");
   els["f-purpose"].value = "";
   els["f-save-shortcut"].checked = false;
-  editingId = null;
-  els["btn-save"].textContent = "保存する";
-  els["btn-cancel-edit"].hidden = true;
-  els["btn-clear-form"].hidden = false;
+  setEditMode(null);
   updateTotalDisplay();
+}
+
+function setEditMode(r){
+  editingId = r ? r.id : null;
+  els["edit-banner"].hidden = !r;
+  if(r) els["edit-banner-text"].textContent = formatDateShort(r.date) + "　" + r.from + " → " + r.to;
+  els["btn-save"].textContent = r ? "修正を保存" : "保存する";
+  els["btn-save-as-new"].hidden = !r;
+  els["btn-cancel-edit"].hidden = !r;
+  els["btn-clear-form"].hidden = !!r;
+  updateDuplicateButtonVisibility();
 }
 
 function saveDraft(){
@@ -797,7 +814,7 @@ setupAutocomplete(els["f-purpose"], "purpose", {
 });
 
 function updateDuplicateButtonVisibility(){
-  els["btn-duplicate-last"].hidden = records.length === 0;
+  els["btn-duplicate-last"].hidden = records.length === 0 || !!editingId;
 }
 
 function renderShortcuts(){
@@ -865,12 +882,8 @@ els["btn-duplicate-last"].addEventListener("click", function(){
   els["f-fare"].value = last.fare;
   setTripType(last.tripType);
   els["f-purpose"].value = last.purpose || "";
-  editingId = null;
-  els["btn-save"].textContent = "保存する";
-  els["btn-cancel-edit"].hidden = true;
-  els["btn-clear-form"].hidden = false;
   saveDraft();
-  showToast("前回の内容を入力欄に反映しました");
+  showToast("前回の内容を入力欄に呼び出しました");
 });
 
 els["btn-cancel-edit"].addEventListener("click", function(){
@@ -884,7 +897,10 @@ els["btn-clear-form"].addEventListener("click", function(){
   showToast("入力内容をクリアしました");
 });
 
-els["btn-save"].addEventListener("click", function(){
+els["btn-save"].addEventListener("click", function(){ handleSave(false); });
+els["btn-save-as-new"].addEventListener("click", function(){ handleSave(true); });
+
+function handleSave(asNew){
   var date = els["f-date"].value;
   var from = els["f-from"].value.trim();
   var to = els["f-to"].value.trim();
@@ -902,10 +918,11 @@ els["btn-save"].addEventListener("click", function(){
 
   var entry = {
     date: date, from: from, to: to, tripType: currentTripType, fare: fare, purpose: purpose,
-    saveShortcut: els["f-save-shortcut"].checked
+    saveShortcut: els["f-save-shortcut"].checked,
+    updateId: asNew ? null : editingId
   };
 
-  if(!editingId){
+  if(!entry.updateId){
     var dup = records.some(function(r){
       return r.date === date && r.from === from && r.to === to && r.tripType === entry.tripType;
     });
@@ -917,14 +934,15 @@ els["btn-save"].addEventListener("click", function(){
     }
   }
   commitSave(entry);
-});
+}
 
 function commitSave(e){
-  var wasEditing = !!editingId;
+  var wasEditing = !!e.updateId;
+  var addedFromEdit = !e.updateId && !!editingId;
   var fields = { date: e.date, from: e.from, to: e.to, tripType: e.tripType, fare: e.fare, purpose: e.purpose };
 
   if(wasEditing){
-    var idx = records.findIndex(function(r){ return r.id === editingId; });
+    var idx = records.findIndex(function(r){ return r.id === e.updateId; });
     if(idx !== -1){
       records[idx] = Object.assign({}, records[idx], fields, { updatedAt: Date.now() });
     }
@@ -949,10 +967,11 @@ function commitSave(e){
   renderShortcuts();
   renderHistory();
   updateDuplicateButtonVisibility();
-  showToast(wasEditing ? "更新しました" : "保存しました");
+  showToast(wasEditing ? "修正を保存しました" : addedFromEdit ? "新しい記録として追加しました" : "保存しました");
 }
 
 function loadRecordIntoForm(r){
+  setEditMode(r);
   els["f-date"].value = r.date;
   els["f-from"].value = r.from;
   els["f-to"].value = r.to;
@@ -960,11 +979,8 @@ function loadRecordIntoForm(r){
   setTripType(r.tripType);
   els["f-purpose"].value = r.purpose || "";
   els["f-save-shortcut"].checked = false;
-  editingId = r.id;
-  els["btn-save"].textContent = "更新する";
-  els["btn-cancel-edit"].hidden = false;
-  els["btn-clear-form"].hidden = true;
   switchTab("input");
+  window.scrollTo(0, 0);
 }
 
 function visibleHistoryRecords(){
@@ -1128,6 +1144,7 @@ els["hist-list"].addEventListener("click", function(e){
       }
       records = records.filter(function(r){ return r.id !== id; });
       saveJSON(KEYS.records, records);
+      if(id === editingId) resetForm();
       swipe.openId = null;
       renderHistory();
       updateDuplicateButtonVisibility();
