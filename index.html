@@ -207,7 +207,6 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
 .modal-card h3{font-size:14px;margin:16px 0 6px;}
 .modal-card p,.modal-card li{font-size:13.5px;color:var(--text-secondary);line-height:1.6;}
 .modal-close{width:100%;background:var(--bg);border:none;border-radius:10px;padding:12px;font-size:14.5px;color:var(--text);margin-top:12px;}
-.modal-card .credit{margin:14px 0 0;text-align:center;font-size:11px;color:var(--text-secondary);opacity:.7;}
 
 @media print{
   @page{size:A4;margin:15mm;}
@@ -407,7 +406,6 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       <h3>ご注意</h3>
       <p>アプリ内蔵ブラウザ（一部のチャットアプリのプレビュー等）では、共有・印刷・ダウンロード機能が正しく動作しないことがあります。SafariやChromeで開いてご利用ください。</p>
       <button class="modal-close" id="btn-help-close">閉じる</button>
-      <p class="credit">Created by Hiroki Dote</p>
     </div>
   </div>
 
@@ -499,9 +497,12 @@ function weekdayShort(dateStr){
   var d = new Date(dateStr + "T00:00:00");
   return ["日","月","火","水","木","金","土"][d.getDay()];
 }
-function formatDateShort(dateStr){
+function formatMonthDay(dateStr){
   var parts = dateStr.split("-");
-  return parseInt(parts[1],10) + "/" + parseInt(parts[2],10) + "（" + weekdayShort(dateStr) + "）";
+  return parseInt(parts[1],10) + "/" + parseInt(parts[2],10);
+}
+function formatDateShort(dateStr){
+  return formatMonthDay(dateStr) + "（" + weekdayShort(dateStr) + "）";
 }
 function showToast(msg){
   var el = document.getElementById("toast");
@@ -1205,7 +1206,7 @@ els["btn-exp-generate"].addEventListener("click", function(){
     .sort(function(a,b){ return a.date < b.date ? -1 : (a.date > b.date ? 1 : 0); });
 
   els["exp-table-body"].innerHTML = exportRows.map(function(r){
-    return "<tr><td class=\"nowrap\">" + formatDateShort(r.date) + "</td><td>" + escapeHtml(r.from) + "→" + escapeHtml(r.to) + "</td>" +
+    return "<tr><td class=\"nowrap\">" + formatMonthDay(r.date) + "</td><td>" + escapeHtml(r.from) + "→" + escapeHtml(r.to) + "</td>" +
       "<td class=\"nowrap\">" + (r.tripType === "round" ? "往復" : "片道") + "</td><td class=\"num\">" + yen(recordTotal(r)) + "</td>" +
       "<td>" + escapeHtml(r.purpose || "") + "</td></tr>";
   }).join("") || "<tr><td colspan=\"5\">該当する記録がありません</td></tr>";
@@ -1259,7 +1260,7 @@ function renderPdfPages(rows, name, periodText, totalText){
   var M = 90;
   var tableW = PDF_PX_W - M * 2;
   var cols = [
-    { label: "日付", w: 130 },
+    { label: "日付", w: 90 },
     { label: "経路", w: 330 },
     { label: "種別", w: 70 },
     { label: "金額", w: 120, right: true }
@@ -1363,7 +1364,7 @@ function renderPdfPages(rows, name, periodText, totalText){
   }
   rows.forEach(function(r){
     drawRow([
-      formatDateShort(r.date),
+      formatMonthDay(r.date),
       r.from + "→" + r.to,
       r.tripType === "round" ? "往復" : "片道",
       yen(recordTotal(r)),
