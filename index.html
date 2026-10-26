@@ -24,6 +24,9 @@
   --danger:#e0483e;
   --success:#1f9d55;
   --shadow:0 1px 3px rgba(0,0,0,.08);
+  --notice-bg:#fff4e5;
+  --notice-border:#f5c99b;
+  --notice-title:#c2410c;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -35,6 +38,9 @@
     --text-secondary:#9aa1ac;
     --border:#2a2e37;
     --shadow:0 1px 3px rgba(0,0,0,.4);
+    --notice-bg:#2a1f12;
+    --notice-border:#6b4a22;
+    --notice-title:#fdba74;
   }
 }
 :root[data-theme="dark"]{
@@ -46,6 +52,9 @@
   --text-secondary:#9aa1ac;
   --border:#2a2e37;
   --shadow:0 1px 3px rgba(0,0,0,.4);
+  --notice-bg:#2a1f12;
+  --notice-border:#6b4a22;
+  --notice-title:#fdba74;
 }
 *{box-sizing:border-box;}
 [hidden]{display:none !important;}
@@ -189,6 +198,11 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
 #exp-status.ok{color:var(--success);}
 #exp-status.error{color:var(--danger);}
 
+.moved-notice{margin:12px 16px 0;padding:12px 14px;border-radius:12px;border:1px solid var(--notice-border);background:var(--notice-bg);}
+.moved-notice p{margin:0 0 8px;font-size:13.5px;line-height:1.6;color:var(--text);}
+.moved-notice .moved-title{font-size:15px;font-weight:700;color:var(--notice-title);}
+.moved-link{display:block;text-align:center;background:var(--accent);color:var(--accent-contrast);border-radius:10px;padding:11px;font-size:15px;font-weight:700;text-decoration:none;}
+.moved-notice .moved-url{margin:6px 0 8px;text-align:center;font-size:12.5px;color:var(--text-secondary);user-select:all;-webkit-user-select:all;}
 #first-run-banner{margin:12px 16px 0;}
 #first-run-banner p{margin:0 0 10px;font-size:13.5px;}
 
@@ -237,6 +251,14 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       <button id="btn-help" aria-label="ヘルプ">?</button>
     </div>
   </header>
+
+  <div class="moved-notice" id="moved-notice" hidden>
+    <p class="moved-title">交通費メモは新しいURLに移りました</p>
+    <p>11月からは新しいアプリをお使いください。<b>このアプリの記録は、新しいアプリには引き継がれません。</b>10月分までの精算書（PDF）を提出してから切り替えてください。</p>
+    <a class="moved-link" id="moved-link" href="https://kotsuhi-memo.pages.dev/" target="_blank" rel="noopener">新しいアプリを開く</a>
+    <p class="moved-url">https://kotsuhi-memo.pages.dev/</p>
+    <p>開いたらSafariの共有ボタン（□に↑）→「ホーム画面に追加」で、新しいアイコンを作ってください。このアプリは、過去の記録の確認用にしばらく使えます。</p>
+  </div>
 
   <div id="first-run-banner" class="card" hidden>
     <p>ホーム画面に追加すると、アプリのようにすぐ開けます。</p>
@@ -524,7 +546,7 @@ var els = {};
   "hist-search","hist-total","hist-list",
   "exp-start","exp-end","btn-exp-generate","exp-preview","exp-table-body","exp-total",
   "exp-actions","btn-exp-share","btn-exp-csv","btn-exp-print","btn-exp-copy","exp-status",
-  "first-run-banner","btn-first-run-help","btn-first-run-dismiss",
+  "first-run-banner","btn-first-run-help","btn-first-run-dismiss","moved-notice",
   "help-modal","btn-help","btn-help-close","toast",
   "confirm-modal","confirm-message","confirm-ok","confirm-cancel",
   "btn-settings","settings-modal","s-name","btn-settings-cancel","btn-settings-save",
@@ -1569,7 +1591,10 @@ function init(){
   renderShortcuts();
   updateDuplicateButtonVisibility();
 
-  if(!loadJSON(KEYS.firstRun, false)){
+  // The old GitHub Pages copy tells users to switch once the move date arrives; the new site never shows it.
+  var movedAway = /\.github\.io$/.test(location.hostname) && todayStr() >= "2026-11-01";
+  els["moved-notice"].hidden = !movedAway;
+  if(!movedAway && !loadJSON(KEYS.firstRun, false)){
     els["first-run-banner"].hidden = false;
   }
 

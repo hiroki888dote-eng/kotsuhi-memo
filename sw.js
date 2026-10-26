@@ -1,5 +1,6 @@
-const CACHE = "kotsuhi-memo-v3";
-const ASSETS = ["./", "./index.html", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"];
+const CACHE = "kotsuhi-memo-v4";
+// No "./index.html": Cloudflare Pages redirects it to "./", and a redirected response can't be used for a page load.
+const ASSETS = ["./", "./manifest.webmanifest", "./apple-touch-icon.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)));
@@ -22,12 +23,12 @@ self.addEventListener("fetch", (event) => {
     fetch(req)
       .then((res) => {
         // Only cache real app files; a login redirect (e.g. Cloudflare Access) must never become the offline copy.
-        if (res.ok && res.type === "basic") {
+        if (res.ok && res.type === "basic" && !res.redirected) {
           const copy = res.clone();
           caches.open(CACHE).then((cache) => cache.put(req, copy));
         }
         return res;
       })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match("./index.html")))
+      .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match("./")))
   );
 });

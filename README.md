@@ -59,7 +59,10 @@
 
 未対応・今後の検討事項
 
-* [ ] 複数人配布のための恒久的なホスティング先の決定（GitHub Pages / Netlify / Vercel など、VPN不要でアクセスできる無料ホスティングを想定。社内サーバーはVPN必須のため配布用途には不向きと判断済み）
+* [x] 配布先の決定：Cloudflare Pages（https://kotsuhi-memo.pages.dev/ 、ログインなし）。公開用リポジトリ kotsuhi-memo の main に反映すると自動で更新される
+   * 旧配布先 GitHub Pages（https://hiroki888dote-eng.github.io/kotsuhi-memo/）では、2026-11-01以降「新しいURLに移りました」のお知らせを表示（記録はURLごとに保存されるため引き継がれない。月の切り替わりで移行）
+   * 移行完了後に GitHub Pages を停止し、kotsuhi-memo を非公開にする予定
+   * Cloudflare Access（社内メール限定ログイン）は、iPhoneのホーム画面アプリでログインが繰り返される懸念から保留
 * [x] PWA化：アイコン画像・manifest・Service Worker（ネット優先、圏外時は保存済みの版で起動）に対応
 * [ ] 領収書の写真添付機能
 * [ ] 複数人利用時に、必要であれば管理者が集計を吸い上げる仕組み（現状は個人のブラウザ内で完結する設計のため、要件次第で要検討。当面は各自が書き出したCSV・PDFをメール等で提出してもらい手動集計する運用を想定）
