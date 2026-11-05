@@ -50,6 +50,15 @@
 * ホーム画面追加の案内：初回起動時にバナーで案内。ヘルプ（「？」ボタン）から使い方・ホーム画面への追加方法・データ保存に関する注意事項をいつでも確認可能
 * ダークモード対応（端末の設定に自動追従）、セーフエリア（ノッチ・ホームインジケーター）対応
 
+セキュリティ対策
+
+* CSP（Content-Security-Policy）：アプリ自身以外からのスクリプト・画像・通信をブラウザ側で禁止（index.html の meta と、Cloudflare Pages では `_headers` の両方で指定）
+* Cloudflare Pages では `_headers` で、他サイトへの埋め込み禁止（frame-ancestors / X-Frame-Options）・nosniff・Referrer-Policy・Permissions-Policy・HSTS も付与（GitHub Pages はヘッダー設定ができないため meta の CSP のみ）
+* 保存データ（localStorage）は読み込み時に形式を検査し、日付・金額・ID などが不正な記録は使わない（壊れたデータや書き換えで画面が崩れたり、不正な表示が入り込んだりしないように）
+* 画面に出す文字・ID は無害化（エスケープ）してから表示
+* CSV書き出しでは、先頭が `= + - @` などのセルに `'` を付け、Excelで数式として実行されないようにする
+* 入力上限：出発地・到着地50文字、目的100文字、名前40文字、片道料金999,999円
+
 技術的な制約・注意点
 
 * `localStorage` はブラウザ（オリジン）ごとに独立するため、同じ入口（同じブラウザ／同じホーム画面アイコン）から開き続けることが前提
@@ -73,6 +82,7 @@
 index.html            … アプリ本体（これ単体でも動作する）
 manifest.webmanifest  … ホーム画面追加時のアプリ名・アイコン等
 sw.js                 … オフライン起動用のService Worker（HTTPSまたはlocalhostでのみ有効）
+_headers              … Cloudflare Pages 用のセキュリティヘッダー設定
 apple-touch-icon.png  … iPhoneホーム画面用アイコン（180px）
 icon-192.png / icon-512.png … Android等向けアイコン
 README.md             … このファイル

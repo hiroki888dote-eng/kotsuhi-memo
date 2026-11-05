@@ -2,6 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>交通費メモ</title>
 <meta name="theme-color" content="#2f6fed">
@@ -320,14 +322,14 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         <div class="field">
           <label for="f-from">出発地</label>
           <div class="ac-wrap">
-            <input type="text" id="f-from" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-from">
+            <input type="text" id="f-from" maxlength="50" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-from">
             <ul class="ac-list" id="ac-f-from" role="listbox" hidden></ul>
           </div>
         </div>
         <div class="field">
           <label for="f-to">到着地</label>
           <div class="ac-wrap">
-            <input type="text" id="f-to" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-to">
+            <input type="text" id="f-to" maxlength="50" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-to">
             <ul class="ac-list" id="ac-f-to" role="listbox" hidden></ul>
           </div>
         </div>
@@ -340,7 +342,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         </div>
         <div class="field">
           <label for="f-fare">片道料金（円）</label>
-          <input type="number" id="f-fare" inputmode="numeric" pattern="[0-9]*" min="0" step="1">
+          <input type="number" id="f-fare" inputmode="numeric" pattern="[0-9]*" min="0" max="999999" step="1">
           <div class="fare-hints" id="f-fare-hints" hidden>
             <span class="fare-hints-label">過去の料金</span>
             <span class="fare-hint-list" id="f-fare-hint-list"></span>
@@ -350,7 +352,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
         <div class="field" style="margin-top:14px;">
           <label for="f-purpose">目的・訪問先</label>
           <div class="ac-wrap">
-            <input type="text" id="f-purpose" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-purpose">
+            <input type="text" id="f-purpose" maxlength="100" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="ac-f-purpose">
             <ul class="ac-list" id="ac-f-purpose" role="listbox" hidden></ul>
           </div>
         </div>
@@ -464,7 +466,7 @@ table.export-table tfoot th,table.export-table tfoot td{font-weight:700;}
       <h2 id="settings-title">名前設定</h2>
       <div class="field">
         <label for="s-name">名前</label>
-        <input type="text" id="s-name" autocomplete="name" placeholder="例：山田 太郎">
+        <input type="text" id="s-name" maxlength="40" autocomplete="name" placeholder="例：山田 太郎">
         <div class="hint">交通費精算書（書き出し・PDF）に毎回表示されます。</div>
       </div>
       <div class="btn-row">
@@ -513,10 +515,39 @@ function saveJSON(key, val){
   }
 }
 
-var records = loadJSON(KEYS.records, []);
-var shortcuts = loadJSON(KEYS.shortcuts, []);
+var LIMIT = { place: 50, purpose: 100, name: 40, fare: 999999 };
+var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+var ID_RE = /^[A-Za-z0-9]{1,40}$/;
+
+// Stored data is re-checked on load so a corrupted or tampered entry can't break rendering or inject markup.
+function cleanText(v, max){ return typeof v === "string" ? v.slice(0, max) : ""; }
+function cleanFare(v){
+  var n = Number(v);
+  return isFinite(n) && n >= 0 && n <= LIMIT.fare ? Math.round(n) : null;
+}
+function cleanRoute(o){
+  if(!o || typeof o !== "object" || !ID_RE.test(String(o.id))) return null;
+  var fare = cleanFare(o.fare);
+  var from = cleanText(o.from, LIMIT.place), to = cleanText(o.to, LIMIT.place);
+  if(fare === null || !from || !to) return null;
+  return { id: String(o.id), from: from, to: to, tripType: o.tripType === "one" ? "one" : "round",
+           fare: fare, purpose: cleanText(o.purpose, LIMIT.purpose) };
+}
+function cleanRecord(r){
+  var base = cleanRoute(r);
+  if(!base || !DATE_RE.test(r.date)) return null;
+  base.date = r.date;
+  base.createdAt = Number(r.createdAt) || 0;
+  base.updatedAt = Number(r.updatedAt) || 0;
+  return base;
+}
+function cleanList(raw, fn){ return Array.isArray(raw) ? raw.map(fn).filter(Boolean) : []; }
+
+var records = cleanList(loadJSON(KEYS.records, []), cleanRecord);
+var shortcuts = cleanList(loadJSON(KEYS.shortcuts, []), cleanRoute);
 var settings = loadJSON(KEYS.settings, {});
-if(!settings || typeof settings !== "object") settings = {};
+if(!settings || typeof settings !== "object" || Array.isArray(settings)) settings = {};
+settings = { name: cleanText(settings.name, LIMIT.name) };
 var editingId = null;
 var currentTripType = "round";
 var currentMonthKey = monthKey(new Date());
@@ -877,7 +908,7 @@ function renderShortcuts(){
   }
   els["shortcuts-card"].hidden = false;
   els["shortcuts-list"].innerHTML = shortcuts.map(function(s){
-    return "<button type=\"button\" class=\"chip\" data-id=\"" + s.id + "\">" +
+    return "<button type=\"button\" class=\"chip\" data-id=\"" + escapeHtml(s.id) + "\">" +
       escapeHtml(s.from) + "→" + escapeHtml(s.to) + "</button>";
   }).join("");
 }
@@ -968,6 +999,13 @@ function handleSave(asNew){
     showToast("片道料金を正しく入力してください");
     return;
   }
+  if(fare > LIMIT.fare){
+    showToast("片道料金は999,999円までで入力してください");
+    return;
+  }
+  from = from.slice(0, LIMIT.place);
+  to = to.slice(0, LIMIT.place);
+  purpose = purpose.slice(0, LIMIT.purpose);
 
   var entry = {
     date: date, from: from, to: to, tripType: currentTripType, fare: fare, purpose: purpose,
@@ -1058,9 +1096,10 @@ function visibleHistoryRecords(){
 
 function renderHistoryRow(r){
   var badge = r.tripType === "round" ? "往復" : "片道";
-  return "<div class=\"history-row-wrap\" data-id=\"" + r.id + "\">" +
-    "<button class=\"history-delete-btn\" data-id=\"" + r.id + "\">削除</button>" +
-    "<div class=\"history-row\" data-id=\"" + r.id + "\">" +
+  var id = escapeHtml(r.id);
+  return "<div class=\"history-row-wrap\" data-id=\"" + id + "\">" +
+    "<button class=\"history-delete-btn\" data-id=\"" + id + "\">削除</button>" +
+    "<div class=\"history-row\" data-id=\"" + id + "\">" +
       "<div class=\"row-top\">" +
         "<span class=\"route\">" + escapeHtml(r.from) + " → " + escapeHtml(r.to) + "</span>" +
         "<span class=\"amount\">" + yen(recordTotal(r)) + "</span>" +
@@ -1232,7 +1271,9 @@ function buildCSV(list){
   var csvLines = [header].concat(rows).map(function(cols){
     return cols.map(function(v){
       var s = String(v);
-      if(/[",\n]/.test(s)) s = "\"" + s.replace(/"/g,"\"\"") + "\"";
+      // A leading = + - @ (or tab/CR) would run as a formula when the CSV is opened in Excel.
+      if(typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      if(/[",\n\r]/.test(s)) s = "\"" + s.replace(/"/g,"\"\"") + "\"";
       return s;
     }).join(",");
   });
@@ -1589,7 +1630,7 @@ els["btn-settings"].addEventListener("click", function(){
 });
 els["btn-settings-cancel"].addEventListener("click", function(){ els["settings-modal"].hidden = true; });
 els["btn-settings-save"].addEventListener("click", function(){
-  settings.name = els["s-name"].value.trim();
+  settings.name = els["s-name"].value.trim().slice(0, LIMIT.name);
   if(!saveJSON(KEYS.settings, settings)) return;
   els["settings-modal"].hidden = true;
   if(!els["exp-preview"].hidden){
